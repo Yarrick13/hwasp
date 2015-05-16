@@ -214,7 +214,7 @@ class Solver
         
 //        inline void initClauseData( Clause* clause ) { assert( heuristic != NULL ); heuristic->initClauseData( clause ); }
 //        inline Heuristic* getHeuristic() { return heuristic; }
-        inline void onLiteralInvolvedInConflict( Literal l ) { minisatHeuristic->onLiteralInvolvedInConflict( l ); }
+        inline void onLiteralInvolvedInConflict( Literal l ) { heuristic->onLiteralInvolvedInConflict( l ); }
         inline void finalizeDeletion( unsigned int newVectorSize ) { learnedClauses.resize( newVectorSize ); }        
         
         inline void setRestart( Restart* r );
@@ -265,7 +265,7 @@ class Solver
 //        inline void setMaxCostOfLevelOfOptimizationRules( vector< uint64_t >& m ) { maxCostOfLevelOfOptimizationRules.swap( m ); }
 //        inline void setNumberOfOptimizationLevels( unsigned int n ) { numberOfOptimizationLevels = n; }        
         inline void addPreferredChoicesFromOptimizationLiterals( unsigned int level );
-        inline void removePrefChoices() { minisatHeuristic->removePrefChoices(); }
+        inline void removePrefChoices() { heuristic->removePrefChoices(); }
         
         inline bool isTrue( Var v ) const { return variables.isTrue( v ); }
         inline bool isFalse( Var v ) const { return variables.isFalse( v ); }        
@@ -365,7 +365,7 @@ class Solver
         inline void learnedClauseUsedForConflict( Clause* clause );
         inline unsigned int computeLBD( const Clause& clause );
         
-        inline void bumpActivity( Var v ) { minisatHeuristic->bumpActivity( v ); }
+        inline void incrementHeuristicValues( Var v ) { heuristic->incrementHeuristicValues( v ); }
         
         inline bool glucoseHeuristic() const { return glucoseHeuristic_; }
         inline void disableGlucoseHeuristic() { glucoseHeuristic_ = false; }
@@ -401,6 +401,7 @@ class Solver
         inline void disableVariableElimination() { assert( satelite != NULL ); satelite->disableVariableElimination(); }
 
         inline void setMinisatHeuristic() { glucoseHeuristic_ = false; }
+        inline void setHeuristic( Heuristic* heur ) { delete heuristic; heuristic = heur; }
         
         void clearAfterSolveUnderAssumptions( const vector< Literal >& assumptions );
         
@@ -476,7 +477,7 @@ class Solver
         Learning learning;
         OutputBuilder* outputBuilder;        
         
-        MinisatHeuristic* minisatHeuristic;
+        Heuristic* heuristic;
         Restart* restart;
         Satelite* satelite;                
         
@@ -671,7 +672,7 @@ Solver::Solver()
 {
     dependencyGraph = new DependencyGraph( *this );
     satelite = new Satelite( *this );
-    minisatHeuristic = new MinisatHeuristic( *this );
+    heuristic = new MinisatHeuristic( *this );
     deletionCounters.init();
     glucoseData.init();
     VariableNames::addVariable();
@@ -734,7 +735,7 @@ Solver::addVariableInternal()
 {
     VariableNames::addVariable();
     variables.push_back();    
-    minisatHeuristic->onNewVariable( variables.numberOfVariables() );
+    heuristic->onNewVariable( variables.numberOfVariables() );
     learning.onNewVariable();
     glucoseData.onNewVariable();
     
@@ -762,7 +763,7 @@ void
 Solver::addVariableRuntime()
 {
     addVariableInternal();
-    minisatHeuristic->onNewVariableRuntime( numberOfVariables() );
+    heuristic->onNewVariableRuntime( numberOfVariables() );
 }
 
 Literal
@@ -1080,7 +1081,7 @@ Solver::incrementCurrentDecisionLevel()
 void
 Solver::unrollLastVariable()
 {    
-    minisatHeuristic->onUnrollingVariable( variables.unrollLastVariable() );
+    heuristic->onUnrollingVariable( variables.unrollLastVariable() );
 }
 
 void
@@ -1255,7 +1256,7 @@ Solver::chooseLiteral(
     
     if( choice != Literal::null )
         goto end;    
-    choice = minisatHeuristic->makeAChoice();    
+    choice = heuristic->makeAChoice();    
     
     end:;
     trace_msg( solving, 1, "Choice: " << choice );
@@ -1555,7 +1556,7 @@ Solver::preprocessing()
     if( callSimplifications() && !satelite->simplify() )
         return false;
 
-    minisatHeuristic->simplifyVariablesAtLevelZero();
+    heuristic->simplifyVariablesAtLevelZero();
     clearVariableOccurrences();
     attachWatches();
     clearComponents();
@@ -1840,7 +1841,7 @@ Solver::addPreferredChoicesFromOptimizationLiterals(
     for( unsigned int i = 0; i < numberOfOptimizationLiterals( level ); i++ )
     {
         if( isUndefined( getOptimizationLiteral( level, i ).lit ) )
-            minisatHeuristic->addPreferredChoice( getOptimizationLiteral( level, i ).lit.getOppositeLiteral() );
+            heuristic->addPreferredChoice( getOptimizationLiteral( level, i ).lit.getOppositeLiteral() );
     }
 }
 

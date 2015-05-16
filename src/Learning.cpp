@@ -139,7 +139,7 @@ Learning::onConflict(
                 {
                     Clause* c = ( Clause* ) implicant;
                     if( c->lbd() < lbd )
-                        solver.bumpActivity( v );
+                        solver.incrementHeuristicValues( v );
                 }
             }        
         }

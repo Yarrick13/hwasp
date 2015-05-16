@@ -535,7 +535,7 @@ void HCComponent::checkModel(
                     continue;
 
                 Literal origLit = getGeneratorLiteralFromCheckerLiteral( l );
-                solver.bumpActivity( origLit.getVariable() );
+                solver.incrementHeuristicValues( origLit.getVariable() );
             }
         }
         checker.clearConflictStatus();        

@@ -29,6 +29,7 @@
 #include "outputBuilders/DimacsOutputBuilder.h"
 
 #include "MinisatHeuristic.h"
+#include "PUPHeuristic.h"
 #include "outputBuilders/MultiOutputBuilder.h"
 #include "QueryInterface.h"
 
@@ -189,8 +190,13 @@ WaspFacade::setDecisionPolicy(
 //        case HEURISTIC_FIRST_UNDEFINED:
 //            heuristic->setDecisionStrategy( new FirstUndefinedHeuristic( solver ) );
 //            break;
-//            
+        
+        case HEURISTIC_PUP:
+            solver.setHeuristic( new PUPHeuristic( solver ) );
+            break;
+        
         case HEURISTIC_MINISAT:
+            solver.setHeuristic( new MinisatHeuristic( solver ) );
             solver.setMinisatHeuristic();
             break;
 //    
