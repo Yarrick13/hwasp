@@ -62,6 +62,7 @@ namespace wasp
 #define OPTIONID_berkminheuristic ( 'z' + 31 )
 #define OPTIONID_minisatheuristic ( 'z' + 32 )
 #define OPTIONID_berkminheuristiccache ( 'z' + 33 )
+#define OPTIONID_pupheuristic ( 'z' + 34 )
 
 /* RESTART OPTIONS */
 #define OPTIONID_geometric_restarts ( 'z' + 50 )
@@ -197,6 +198,7 @@ Options::parse(
 //                { "heuristic-berkmin-cache", optional_argument, NULL, OPTIONID_berkminheuristiccache },
 //                { "heuristic-firstundefined", no_argument, NULL, OPTIONID_fuheuristic },
                 { "heuristic-minisat", no_argument, NULL, OPTIONID_minisatheuristic },
+                { "heuristic-pup", no_argument, NULL, OPTIONID_pupheuristic },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -349,7 +351,11 @@ Options::parse(
             
             case OPTIONID_minisatheuristic:
                 decisionPolicy = HEURISTIC_MINISAT;
-                break;                
+                break;
+                
+            case OPTIONID_pupheuristic:
+                decisionPolicy = HEURISTIC_PUP;
+                break;
                 
             case OPTIONID_sequence_based_restarts:
                 restartsPolicy = SEQUENCE_BASED_RESTARTS_POLICY;

@@ -23,6 +23,7 @@
 #include "util/Trace.h"
 #include "Literal.h"
 #include "stl/Heap.h"
+#include "Heuristic.h"
 
 #include <cassert>
 #include <iostream>
@@ -36,34 +37,34 @@ struct ActivityComparator
     ActivityComparator( const Vector< Activity >& a ) : act( a ) {}
 };
 
-class MinisatHeuristic
+class MinisatHeuristic : public Heuristic
 {
     public:
         inline MinisatHeuristic( Solver& s );
         inline ~MinisatHeuristic(){};
 
-        Literal makeAChoice();
         inline void onNewVariable( Var v );
         inline void onNewVariableRuntime( Var v );
         inline void onLiteralInvolvedInConflict( Literal literal );
         inline void onUnrollingVariable( Var var );
-        inline void variableDecayActivity(){ trace_msg( heuristic, 1, "Calling decay activity" ); variableIncrement *= variableDecay; }
-        inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
-        inline void removePrefChoices() { preferredChoices.clear(); }
+        inline void incrementHeuristicValues( Var v ) { variableBumpActivity( v ); }
         void simplifyVariablesAtLevelZero();
-        inline bool bumpActivity( Var var ){ assert( var < act.size() ); return ( ( act[ var ] += variableIncrement ) > 1e100 ); }        
+        inline void conflictOccurred() { variableDecayActivity(); } 
+        
+    protected:
+        virtual Literal makeAChoiceProtected();
         
     private:        
         inline void rescaleActivity();        
         inline void variableBumpActivity( Var variable );
+        inline bool bumpActivity( Var var ){ assert( var < act.size() ); return ( ( act[ var ] += variableIncrement ) > 1e100 ); }
         void randomChoice();
+        inline void variableDecayActivity(){ trace_msg( heuristic, 1, "Calling decay activity" ); variableIncrement *= variableDecay; }                
 
-        Solver& solver;
         Activity variableIncrement;
         Activity variableDecay;
         
         Vector< Activity > act;
-        vector< Literal > preferredChoices;
         
         vector< Var > vars;
 
@@ -72,7 +73,7 @@ class MinisatHeuristic
 };
 
 MinisatHeuristic::MinisatHeuristic( Solver& s ) :
-    solver( s ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act ) )
+    Heuristic( s ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act ) )
 {
     act.push_back( 0.0 );
 }
