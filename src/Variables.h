@@ -335,6 +335,7 @@ Variables::setTruthValue(
     Var v,
     TruthValue truth )
 {
+	cout << "set truth value for var " << v << " " << Literal(v, POSITIVE) << endl;
 //    assert_msg( ( truth == TRUE || truth == FALSE ), "Truth Value parameter is neither true nor false. It is " << truth << "." );
     if( getTruthValue( v ) == UNDEFINED )
     {

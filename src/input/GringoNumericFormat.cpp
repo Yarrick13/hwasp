@@ -129,6 +129,8 @@ GringoNumericFormat::parse(
     statistics( &solver, startCompletion() );
     computeCompletion();    
     statistics( &solver, endCompletion() );
+
+    solver.onFinishedParsing( );
     //TODO: remove
 //    cout << solver.numberOfVariables() << endl;
 //    unsigned c[1024] = {0};
@@ -1027,6 +1029,7 @@ GringoNumericFormat::readAtomsTable(
         createStructures( nextAtom );
         input.getline( name, 1024 );
         VariableNames::setName( nextAtom, name );
+        solver.onReadAtomTable( nextAtom, name );
         trace_msg( parser, 6, "Set name " << name << " for atom " << nextAtom );
         
         if( wasp::Options::queryAlgorithm != NO_QUERY )

@@ -35,6 +35,7 @@ using namespace std;
 #include "Satelite.h"
 #include "Restart.h"
 #include "MinisatHeuristic.h"
+#include "PUPHeuristic.h"
 #include "util/Statistics.h"
 #include "PostPropagator.h"
 #include "DependencyGraph.h"
@@ -106,6 +107,8 @@ class Solver
 //        inline void addVariable( const string& name );
         inline void addVariable();
         inline void addVariableRuntime();
+        inline void onReadAtomTable ( Var v, const string name ) { heuristic->onReadAtomTable( v, name ); }
+        inline void onFinishedParsing ( ) { heuristic->onFinishedParsing( ); }
         
         inline bool cleanAndAddClause( Clause* clause );
         inline bool addClause( Literal literal );
@@ -672,7 +675,8 @@ Solver::Solver()
 {
     dependencyGraph = new DependencyGraph( *this );
     satelite = new Satelite( *this );
-    heuristic = new MinisatHeuristic( *this );
+    //heuristic = new MinisatHeuristic( *this );
+    heuristic = new PUPHeuristic( *this );
     deletionCounters.init();
     glucoseData.init();
     VariableNames::addVariable();
