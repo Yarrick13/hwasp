@@ -216,6 +216,7 @@ Satelite::addClauseInSubsumptionQueue(
 bool
 Satelite::simplify()
 {
+	return true;
     active = true;
     bool result = simplificationsMinisat2();
     active = false;

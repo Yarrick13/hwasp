@@ -107,7 +107,6 @@ class Solver
 //        inline void addVariable( const string& name );
         inline void addVariable();
         inline void addVariableRuntime();
-        inline void onReadAtomTable ( Var v, const string name ) { heuristic->onReadAtomTable( v, name ); }
         inline void onFinishedParsing ( ) { heuristic->onFinishedParsing( ); }
         
         inline bool cleanAndAddClause( Clause* clause );
@@ -675,8 +674,7 @@ Solver::Solver()
 {
     dependencyGraph = new DependencyGraph( *this );
     satelite = new Satelite( *this );
-    //heuristic = new MinisatHeuristic( *this );
-    heuristic = new PUPHeuristic( *this );
+    heuristic = new MinisatHeuristic( *this );
     deletionCounters.init();
     glucoseData.init();
     VariableNames::addVariable();
@@ -1260,8 +1258,11 @@ Solver::chooseLiteral(
     
     if( choice != Literal::null )
         goto end;    
-    choice = heuristic->makeAChoice();    
-    
+    choice = heuristic->makeAChoice();
+
+    if(choice== Literal::null)
+    	return false;
+
     end:;
     trace_msg( solving, 1, "Choice: " << choice );
     setAChoice( choice );    

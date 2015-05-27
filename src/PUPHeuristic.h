@@ -35,50 +35,60 @@
 using namespace std;
 class Solver;
 
+/*
+ * QuickPUP heuristic for solving the partner units problem
+ * Problem encoding: pup polynomial ( ASP competition 2011 )
+ * ( at most 2 partner units and 2 zones/sensors per unit )
+ */
 class PUPHeuristic : public Heuristic
 {
     public:
         PUPHeuristic( Solver& solver );
-        ~PUPHeuristic();
+        ~PUPHeuristic() { };
 
-        void onNewVariable( Var v );
-        void onNewVariableRuntime( Var v );
-        void onReadAtomTable ( Var v,  string name );
+        void onNewVariable( Var v ) { variables.push_back( v ); };
+        void onNewVariableRuntime( Var v ) { };
         void onFinishedParsing ( );
-        void onLiteralInvolvedInConflict( Literal literal );
-        void onUnrollingVariable( Var v );
-        void incrementHeuristicValues( Var v );
-        void simplifyVariablesAtLevelZero();
-        void conflictOccurred();
+        void onLiteralInvolvedInConflict( Literal literal ) { handleConflict = true; };
+        void onUnrollingVariable( Var v ) { };
+        void incrementHeuristicValues( Var v ) { };
+        void simplifyVariablesAtLevelZero() { };
+        void conflictOccurred()  { handleConflict = true; };
 
     protected:
         Literal makeAChoiceProtected();
 
     private:
-		unsigned int startAt;
-		unsigned int index;
-		unsigned int usedPartnerUnits;
-		unsigned int update;
-		unsigned int maxPu;
-		unsigned int maxElem;
-		int assignTo;
-		int lastAssignTo;
+		unsigned int startAt;					// current starting node
+		unsigned int index;						// current order index ( next node to be considered )
+		unsigned int redo;						// current redo index														delete
+		bool doRedo;							// is redo necessary														delete
+		unsigned int usedPartnerUnits;			// currently used partner units / index of the next partner unit to use
+		unsigned int maxPu;						// maximum number of partner units per unit ( fixed to 2 )
+		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit ( fixed to 2 )
+		int assignTo;							// next partner unit to be assign to the current considered node ( -1 -> new unit )
+		int lastAssignTo;						// last assignTo value
+		bool handleConflict;					// has a conflict to handled before the next assignment is chosen?
+		bool isConsitent;
 
+		// represents either a zone or a sensor
 		struct Node
 		{
 			string name;
 			Var var;
-			vector < Node* > children;
-			unsigned int considered;
-			unsigned int type;
+			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
+			unsigned int considered;			// already considered for current startAt?
+			unsigned int type;					// ZONE or SENSOR
 		};
 
+		// represents a partner unit
 		struct Pu
 		{
 			string name;
 			Var var;
 		};
 
+		// represents a zone to sensor connection ( positive or negative variable )
 		struct Connection
 		{
 			string from;
@@ -86,41 +96,44 @@ class PUPHeuristic : public Heuristic
 			Var var;
 		};
 
+		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
 		{
 			string pu;
 			string to;
 			Var positive;
 			Var negative;
-			unsigned int considered;
 		};
 
-		/*struct PuAssignment
+		// represents an assignment done by the heuristic
+		struct Assignment
 		{
-			Pu *unit;
-			vector < PuAssignment* > partnerUnits;
-			vector < Node* > zones;
-			vector < Node* > sensors;
-		};*/
+			unsigned int index;					// order index corresponding to this assignment ( zone or sensor )
+			unsigned int usedPartnerUnits;		// used partner unit at the time of this assignment
+			int toUnit;							// partner unit used in this assignment
+			Var variable;
+		};
 
+		vector < Var > variables;
         vector < Node > zones;
 		vector < Node > sensors;
 		vector < Pu > partnerUnits;
-		vector < Connection > zone2sensor;
+		vector < Connection > zone2sensor;		// input relation for creating zone assignments
 		vector < ZoneAssignment > unit2zone;
 		vector < ZoneAssignment > unit2sensor;
 
-		vector < Node* > order;
-		//vector < PuAssignment > model;
+		vector < Node* > order;					// current node order
+		vector < Assignment > assignments;		// current assignments done by the heuristic
 
 		void getName( string atom, string *name );
 		void getName( string atom, string *name1, string *name2 );
 
 		void initRelation ( );
+		bool resetHeuristic ( );
+		void processVariable ( Var v );
 		void initUnitAssignments( ZoneAssignment pu, unsigned int sign, unsigned int type );
-		void createOrder ( );
-		bool newPartnerUnitAvailable ( Pu *pu ); //bool newPartnerUnitAvailable ( PuAssignment *pua );
-		//bool assignAndConnect ( PuAssignment *unit, Node *node );
+		bool createOrder ( );
+		bool newPartnerUnitAvailable ( Pu *pu );
 		void incrementIndex ( );
 		void decrementIndex ( );
 		Var getVariable ( Pu *unit, Node *node );

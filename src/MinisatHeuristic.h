@@ -45,6 +45,7 @@ class MinisatHeuristic : public Heuristic
 
         inline void onNewVariable( Var v );
         inline void onNewVariableRuntime( Var v );
+        inline void onFinishedParsing ( ) { };
         inline void onLiteralInvolvedInConflict( Literal literal );
         inline void onUnrollingVariable( Var var );
         inline void incrementHeuristicValues( Var v ) { variableBumpActivity( v ); }
@@ -112,7 +113,7 @@ void
 MinisatHeuristic::onNewVariableRuntime(
     Var v )
 {
-    assert( act.size() - 1 == v );
+	assert( act.size() - 1 == v );
     heap.pushNoCheck( v );
 }
 

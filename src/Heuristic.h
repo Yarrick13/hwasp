@@ -35,7 +35,6 @@ class Heuristic
         Literal makeAChoice();
         virtual void onNewVariable( Var v ) = 0;
         virtual void onNewVariableRuntime( Var v ) = 0;
-        virtual void onReadAtomTable ( Var v,  string name ) = 0;
         virtual void onFinishedParsing ( ) = 0;
         virtual void onLiteralInvolvedInConflict( Literal literal ) = 0;
         virtual void onUnrollingVariable( Var var ) = 0;

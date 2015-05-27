@@ -1029,7 +1029,6 @@ GringoNumericFormat::readAtomsTable(
         createStructures( nextAtom );
         input.getline( name, 1024 );
         VariableNames::setName( nextAtom, name );
-        solver.onReadAtomTable( nextAtom, name );
         trace_msg( parser, 6, "Set name " << name << " for atom " << nextAtom );
         
         if( wasp::Options::queryAlgorithm != NO_QUERY )
