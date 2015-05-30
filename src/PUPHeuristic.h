@@ -47,11 +47,11 @@ class PUPHeuristic : public Heuristic
         ~PUPHeuristic() { };
 
         void onNewVariable( Var v ) { variables.push_back( v ); };
-        void onNewVariableRuntime( Var v ) { };
+        void onNewVariableRuntime( Var ) { };
         void onFinishedParsing ( );
-        void onLiteralInvolvedInConflict( Literal literal ) { handleConflict = true; };
-        void onUnrollingVariable( Var v ) { };
-        void incrementHeuristicValues( Var v ) { };
+        void onLiteralInvolvedInConflict( Literal ) { handleConflict = true; };
+        void onUnrollingVariable( Var ) { };
+        void incrementHeuristicValues( Var ) { };
         void simplifyVariablesAtLevelZero() { };
         void conflictOccurred()  { handleConflict = true; };
 
