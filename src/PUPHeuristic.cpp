@@ -18,16 +18,19 @@
 
 #include "PUPHeuristic.h"
 
-#include "Literal.h"
-#include "Solver.h"
+#include <algorithm>
+#include <iterator>
+#include <string>
+#include <vector>
 
+#include "Solver.h"
+#include "util/Assert.h"
+#include "util/Constants.h"
 #include "util/VariableNames.h"
 
-#include <string>
-
 PUPHeuristic::PUPHeuristic( Solver& s ) :
-    Heuristic( s ),  startAt( 0 ), index( 0 ), redo( 0 ), doRedo( false ), usedPartnerUnits( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ),
-	assignTo( -1 ), lastAssignTo( -1 ), handleConflict( false ), isConsitent( true )
+    Heuristic( s ),  startAt( 0 ), index( 0 ), usedPartnerUnits( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), isConsitent( true ), conflictOccured( false ),
+	conflictHandled( true ), conflictIndex( 0 )
 { }
 
 /*
@@ -48,17 +51,7 @@ PUPHeuristic::processVariable (
 	string tmp;
 	string tmp2;
 
-	string zone("zone(");
-	string sensor("doorSensor(");
-	string z2s("zone2sensor(");
-
-	string unit("comUnit(");
-	string u2zP("unit2zone(");
-	string u2zN("-unit2zone(");
-	string u2sP("unit2sensor(");
-	string u2sN("-unit2sensor(");
-
-	if( name.compare( 0, 5, zone ) == 0 )
+	if( name.compare( 0, 5, "zone(" ) == 0 )
 	{
 		getName( name, &tmp );
 
@@ -72,7 +65,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( zone )" );
 	}
-	else if( name.compare( 0, 11, sensor ) == 0 )
+	else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
 	{
 		getName( name, &tmp );
 
@@ -86,7 +79,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( sensor )" );
 	}
-	else if( name.compare( 0, 12, z2s ) == 0 )
+	else if( name.compare( 0, 12, "zone2sensor(" ) == 0 )
 	{
 		getName( name, &tmp, &tmp2 );
 
@@ -99,7 +92,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( zone2sensor )" );
 	}
-	else if( name.compare( 0, 8, unit ) == 0 )
+	else if( name.compare( 0, 8, "comUnit(" ) == 0 )
 	{
 		getName( name, &tmp );
 
@@ -111,7 +104,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( partnerunit )" );
 	}
-	else if( name.compare( 0, 10, u2zP ) == 0 )
+	else if( name.compare( 0, 10, "unit2zone(" ) == 0 )
 	{
 		getName( name, &tmp, &tmp2 );
 
@@ -124,7 +117,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( unit2zone )" );
 	}
-	else if( name.compare( 0, 11, u2zN ) == 0 )
+	else if( name.compare( 0, 11, "-unit2zone(" ) == 0 )
 	{
 		getName( name, &tmp, &tmp2 );
 
@@ -137,7 +130,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( unit2zone )" );
 	}
-	else if( name.compare( 0, 12, u2sP ) == 0 )
+	else if( name.compare( 0, 12, "unit2sensor(" ) == 0 )
 	{
 		getName( name, &tmp, &tmp2 );
 
@@ -150,7 +143,7 @@ PUPHeuristic::processVariable (
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << "( unit2sensor )" );
 	}
-	else if( name.compare( 0, 13, u2sN ) == 0 )
+	else if( name.compare( 0, 13, "-unit2sensor(" ) == 0 )
 	{
 		getName( name, &tmp, &tmp2 );
 
@@ -274,6 +267,59 @@ PUPHeuristic::initRelation(
 		z->children.push_back( s );
 		s->children.push_back( z );
 	}
+
+	trace_msg( heuristic, 2, "Creating 'usedIn' relation" );
+
+	ZoneAssignment* za;
+	for ( unsigned int i = 0; i < unit2zone.size( ); i++ )
+	{
+		za = &unit2zone[ i ];
+
+		found = false;
+		for ( unsigned int j = 0; j < zones.size( ) && !found; j++ )
+		{
+			if ( zones[ j ].name == za->to )
+			{
+				zones[ j ].usedIn.push_back( za );
+				found = true;
+			}
+		}
+
+		found = false;
+		for ( unsigned int j = 0; j < partnerUnits.size( ) && !found; j++)
+		{
+			if ( partnerUnits[ j ].name == za->pu )
+			{
+				partnerUnits[ j ].usedIn.push_back( za );
+				found = true;
+			}
+		}
+	}
+
+	for ( unsigned int i = 0; i < unit2sensor.size( ); i++ )
+	{
+		za = &unit2sensor[ i ];
+
+		found = false;
+		for ( unsigned int j = 0; j < sensors.size( ) && !found; j++ )
+		{
+			if ( sensors[ j ].name == za->to )
+			{
+				sensors[ j ].usedIn.push_back( za );
+				found = true;
+			}
+		}
+
+		found = false;
+		for ( unsigned int j = 0; j < partnerUnits.size( ) && !found; j++)
+		{
+			if ( partnerUnits[ j ].name == za->pu )
+			{
+				partnerUnits[ j ].usedIn.push_back( za );
+				found = true;
+			}
+		}
+	}
 }
 
 /*
@@ -287,7 +333,6 @@ PUPHeuristic::resetHeuristic (
 	assignments.clear( );
 	index = 0;
 	usedPartnerUnits = 0;
-	assignTo = -1;
 
 	solver.unrollToZero( );
 	solver.clearConflictStatus( );
@@ -352,7 +397,7 @@ PUPHeuristic::initUnitAssignments(
 }
 
 /*
- * creat new order
+ * create new order
  */
 bool
 PUPHeuristic::createOrder (
@@ -398,7 +443,7 @@ PUPHeuristic::createOrder (
 		if ( nextNode >= order.size( ) )
 		{
 			trace_msg( heuristic, 1, "Not all zones/sensors are connected" );
-			cout << "Not all zones/sensors are connected!" << endl;
+			//cout << "Not all zones/sensors are connected!" << endl;
 			return false;
 		}
 
@@ -409,8 +454,148 @@ PUPHeuristic::createOrder (
 	startAt++;
 
 	trace_msg( heuristic, 3, "Considering order " + orderOutput );
+	//cout << "Considering order " + orderOutput << endl;
 
 	return true;
+}
+
+/*
+ * adding variable to assignments
+ * if some unit was already assign to the sensor/zone, add the variable to the tried ones
+ * or add a new assignment otherwise
+ *
+ * @param var	the variable ( unit2zone or unit2sensor )
+ */
+bool
+PUPHeuristic::searchAndAddAssignment(
+	Var variable)
+{
+	string unit, node;
+	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
+
+	getName( VariableNames::getName( variable ), &unit, &node );
+
+	if ( current < assignments.size( ) )
+	{
+		assignments[ current ].variable = variable;
+
+		if ( std::find( assignments[ current ].triedUnits.begin( ), assignments[ current ].triedUnits.end( ), unit ) == assignments[ current ].triedUnits.end( ) )
+			assignments[ current ].triedUnits.push_back( unit );
+
+		return true;
+	}
+	else
+	{
+		Assignment a;
+
+		a.variable = variable;
+		a.name = node;
+		a.triedUnits.push_back( unit );
+
+		assignments.push_back( a );
+
+		return false;
+	}
+}
+
+/*
+ * gets all tried partner units from the given node
+ *
+ * @param node	the node ( zone or sensor )
+ * @param trie	the units tried by this node ( out )
+ * @return		true if there are tried units or false otherwise
+ */
+bool
+PUPHeuristic::getTriedAssignments(
+	Node* node,
+	vector < string >* tried )
+{
+	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
+
+	if ( current < assignments.size( ) )
+	{
+		*tried = assignments[ current ].triedUnits;
+		return true;
+	}
+
+	return false;
+}
+
+/*
+ * gets an unused partner unit
+ *
+ * @param pu	the partner unit ( out )
+ * @return		true if there is an unused partner unit or false otherwise
+ */
+bool
+PUPHeuristic::getUnusedPu(
+	Pu* pu )
+{
+	bool used = false;
+
+	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
+	{
+		used = false;
+
+		for ( unsigned int j = 0; j < partnerUnits[ i ].usedIn.size( ) && !used; j++ )
+		{
+			if ( solver.getTruthValue( partnerUnits[ i ].usedIn[ j ]->positive ) == TRUE )
+				used = true;
+		}
+
+		if ( !used )
+		{
+			*pu = partnerUnits[ i ];
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
+ * determines if the partner is already in use
+ *
+ * @return	true if the unit is used or false otherwise
+ */
+bool
+PUPHeuristic::isPartnerUsed(
+	Pu pu )
+{
+	bool found = false;
+
+	for ( unsigned int i = 0; i < pu.usedIn.size( ) && !found; i++ )
+	{
+		if ( solver.getTruthValue( pu.usedIn[ i ]->positive ) == TRUE )
+			found = true;
+	}
+
+	return found;
+}
+
+/*
+ * gets an unused partner unit
+ *
+ * @param pu	the partner unit ( out )
+ * @param tried	the partner units already tried
+ */
+bool
+PUPHeuristic::getUntriedPu(
+	Pu* pu,
+	vector < string > tried )
+{
+	bool found = false;
+
+	for ( unsigned int i = 0; i < partnerUnits.size( ) && !found; i++ )
+	{
+		if ( std::find( tried.begin(), tried.end(), partnerUnits[ i ].name ) == tried.end() )//&& isPartnerUsed( partnerUnits[ i ] ) )
+		{
+			*pu = partnerUnits[ i ];
+			found = true;
+		}
+	}
+
+	return found;
 }
 
 /*
@@ -419,209 +604,189 @@ PUPHeuristic::createOrder (
 Literal
 PUPHeuristic::makeAChoiceProtected( )
 {
-	Node *current;
 	Pu pu;
+	Node* current;
 	Var chosenVariable;
 	Assignment a;
-	bool reset = false;
-
-	// handle conflict
-	if ( handleConflict )
-	{
-		bool found = false;
-		unsigned int pos;
-
-		// check assignments starting from the beginning for the first which not true anymore
-		// set heuristic to get a new value for this found node
-		for ( pos = 0; pos < assignments.size( ) && !found; pos++ )
-		{
-			if ( solver.getTruthValue( assignments[ pos ].variable ) != TRUE )
-			{
-				found = true;
-				index = assignments[ pos ].index;
-				assignTo = assignments[ pos ].toUnit + 1;
-				usedPartnerUnits = assignments[ pos ].usedPartnerUnits;
-			}
-		}
-
-		// pop all assignments after and including the found one
-		while ( pos <= assignments.size( ) )
-		{
-			trace_msg( heuristic, 3, "Remove variable "<< assignments.back( ).variable << " " << VariableNames::getName( assignments.back( ).variable ) << " from the chosen ones" );
-			assignments.pop_back( );
-		}
-
-		handleConflict = false;
-	}
+	bool found;
 
 	do
 	{
-		/*if ( doRedo )
-		{
-			bool isUndefined;
-
-			do
-			{
-				trace_msg( heuristic, 3, "Redo " << assignments[ redo ].variable <<" " << Literal(assignments[ redo ].variable, POSITIVE) );
-				isUndefined = solver.isUndefined( assignments[ redo ].variable );
-				if ( !isUndefined )
-					redo++;
-			}
-			while ( !isUndefined && redo < assignments.size( ) );
-
-			if ( redo >= assignments.size( ) )
-				doRedo = false;
-			else
-				return Literal( assignments[ redo++ ].variable, POSITIVE );
-		}*/
-
 		if ( !isConsitent )
 			return Literal::null;
 
-		assert_msg ( index < order.size( ), "COHERENT" );
-
-		reset = false;
-		current = order [ index ];
 		chosenVariable = 0;
 
-		// try new partner unit first
-		// try all currently used partner units afterwards
-		if ( assignTo == -1 )
+		do
 		{
-			if ( newPartnerUnitAvailable( &pu ) )
+			found = false;
+
+			if ( index >= order.size( ) )
+			{
+				cout << "assert index" << endl;
+				if ( undefined.size( ) > 0 )
+				{
+					for ( unsigned int i = 0; i < undefined.size( ); i++ )
+					{
+						if ( solver.getTruthValue( undefined[ i ] ) == UNDEFINED )
+							return Literal( undefined[ i ], NEGATIVE );
+					}
+
+					assert_msg ( index < order.size( ), "COHERENT" );
+				}
+
+				bool allTrue = true;
+				for ( unsigned int i = 0; i < assignments.size( ) && allTrue; i++ )
+				{
+					if ( solver.getTruthValue( assignments[ i ].variable ) != TRUE )
+						allTrue = false;
+				}
+
+				if ( allTrue )
+				{
+					for ( unsigned int i = 0; i < variables.size( ); i++ )
+					{
+						if ( solver.isUndefined( variables[ i ] ) )
+							undefined.push_back( variables[ i ] );
+					}
+
+					return Literal( undefined[ 0 ], NEGATIVE );
+				}
+				else
+				{
+					conflictOccured = true;
+					conflictHandled = false;
+					conflictIndex = 0;
+				}
+			}
+
+			if ( conflictOccured )
+			{
+				if ( !conflictHandled )
+				{
+					bool found = false;
+					unsigned int pos = 0;
+
+					while ( pos < assignments.size( )  && !found )
+					{
+						if ( solver.getTruthValue( assignments[ pos ].variable ) == FALSE )
+						{
+							found = true;
+							index = pos;
+							trace_msg( heuristic, 4, "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict" );
+							//cout << "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict" << endl;
+						}
+						else
+							pos++;
+					}
+
+					while ( index < ( assignments.size( ) - 1 ) )
+						assignments.pop_back( );
+
+					conflictHandled = true;
+				}
+
+				while ( conflictIndex < index )
+				{
+					chosenVariable = assignments[ conflictIndex++ ].variable;
+
+					if ( solver.isUndefined( chosenVariable ) )
+						return Literal( chosenVariable, POSITIVE );
+				}
+
+				chosenVariable = 0;
+
+				if ( conflictIndex >= index )
+					conflictOccured = false;
+			}
+
+			current = order[ index++ ];
+
+			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
+			{
+				ZoneAssignment* za = current->usedIn[ i ];
+				if ( solver.getTruthValue( za->positive ) == TRUE )
+				{
+					found = true;
+
+					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
+							                         << za->positive << " " << Literal(za->positive, POSITIVE)
+							                         << " - get next node");
+
+					//cout << "Node " << current->name << " is already assigned with "
+					//         << za->positive << " " << Literal(za->positive, POSITIVE)
+					//         << " - get next node" << endl;
+
+					searchAndAddAssignment( za->positive );
+				}
+			}
+		}
+		while( found );
+
+		vector < string > tried;
+
+		if ( !getTriedAssignments( current, &tried ) )
+		{
+			if ( getUnusedPu( &pu ) )
+			{
 				chosenVariable = getVariable( &pu, current );
-			else
-				assignTo++;
+				searchAndAddAssignment( chosenVariable );
+			}
 		}
 
 		if ( chosenVariable == 0 )
 		{
-			if ( ( ( unsigned int ) assignTo ) < usedPartnerUnits )
-				chosenVariable = getVariable( &partnerUnits[ assignTo ], current );
-			else
-				reset = true;
+			if ( getUntriedPu( &pu, tried ) )
+			{
+				chosenVariable = getVariable( &pu, current );
+				searchAndAddAssignment( chosenVariable );
+			}
 		}
 
-		// reset -> no assignment possible for the current element
-		if ( reset )
+		if ( chosenVariable == 0 )
 		{
-			/*cout << "assignments before" << endl;
+			/*cout << "assignments" << endl;
 			for ( unsigned int i = 0; i < assignments.size( ); i++ )
-				cout << i << ": " << assignments[ i ].variable << " " << VariableNames::getName( assignments[ i ].variable ) << endl;*/
-
-			// searching all assignment beginning form the last to find a node where another assignment is possible
-			// i.e. not all used partner units at this time were used
-			bool found = false;
-			unsigned int pos = assignments.size( );
-			while ( pos > 0 && !found)
 			{
-				pos--;
+				cout << i << ": " << assignments[ i ].variable << " " << VariableNames::getName( assignments[ i ].variable ) << " is "
+						<< solver.getTruthValue( assignments[ i ].variable ) << endl;
+			}
 
-				if ( !solver.isUndefined( Literal( assignments[ pos ].variable, POSITIVE ) ) && assignments[ pos ].toUnit > -1 &&
-						( ( unsigned int ) assignments[ pos ].toUnit ) < assignments[ pos ].usedPartnerUnits )
+			cout << endl << "for the nodes" << endl;
+			for ( unsigned int i = 0; i < order.size( ); i++ )
+			{
+				cout << "node " << order[ i ]->name << endl;
+				for ( unsigned int j = 0; j < (*order[ i ]).usedIn.size( ); j++ )
 				{
-					found = true;
-					index = assignments[ pos ].index;
-					assignTo = assignments[ pos ].toUnit + 1;
-					usedPartnerUnits = assignments[ pos ].usedPartnerUnits;
+					cout << j << ": " << (*order[ i ]).usedIn[ j ]->positive << " " << VariableNames::getName( (*order[ i ]).usedIn[ j ]->positive ) << " is "
+							<< solver.getTruthValue( (*order[ i ]).usedIn[ j ]->positive ) << endl;
 				}
+				cout << endl;
+			}*/
 
-				trace_msg( heuristic, 3, "Remove variable "<< assignments.back( ).variable << " " << VariableNames::getName( assignments.back( ).variable ) << " from the chosen ones" );
-				assignments.pop_back( );
-			}
-
-			// if no one was found reset the heuristic and calculate a new order
-			if ( !found )
-			{
-				trace_msg( heuristic, 2, "No solution for current order - create new one" );
-				isConsitent = resetHeuristic( );
-			}
-			else
-			{
-				// otherwise redo everthing to this point an continue
-				/*cout << "assignments after" << endl;
-				for ( unsigned int i = 0; i < assignments.size( ); i++ )
-					cout << i << ": " << assignments[ i ].variable << " " << VariableNames::getName( assignments[ i ].variable ) << endl;*/
-
-				trace_msg( heuristic, 3, "Found for redo " << assignments[ pos ].variable << " " << VariableNames::getName( assignments[ pos ].variable ) );
-
-				//unsigned int varDecisionLevel = solver.getDecisionLevel( Literal( assignments[ pos ].variable, POSITIVE ) );
-
-				//trace_msg( heuristic, 3, "Unroll from current decisionlevel ( " << solver.getCurrentDecisionLevel( ) << " ) to level " << varDecisionLevel );
-
-				while( solver.getCurrentDecisionLevel() > 0 && !solver.isUndefined( assignments[ pos ].variable ) )
-						solver.unrollOne();
-
-				//solver.unroll( varDecisionLevel );
-
-				/*redo = 0;
-				doRedo = true;
-
-				// what is the correctly to unroll this stuff????
-				solver.unrollToZero( );
-				solver.clearConflictStatus( );
-				//*/
-			}
+			isConsitent = resetHeuristic( );
 		}
 		else
 		{
-			a.index = index;
-			a.toUnit = assignTo;
-			a.usedPartnerUnits = usedPartnerUnits;
-			a.variable = chosenVariable;
-
-			assert_msg( chosenVariable != 0, "The chosen variable has not been set" );
-			trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable <<" " << Literal(chosenVariable, POSITIVE) );
-
-			incrementIndex( );
+			trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal(chosenVariable, POSITIVE) );
+			//cout <<  "Chosen variable is "<< chosenVariable << " " << Literal(chosenVariable, POSITIVE) << endl;
 
 			if ( solver.getTruthValue( chosenVariable ) == FALSE )
 			{
-				decrementIndex( );
-				trace_msg( heuristic, 3, "Chosen variable is already set to FALSE - get new one" );
+				trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
+				//cout << "Chosen variable is already set to FALSE - try another assignment" << endl;
+				index--;
+			}
+			if ( solver.getTruthValue( chosenVariable ) == TRUE )
+			{
+				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue" );
+				//cout << "Chosen variable is already set to TRUE - continue" << endl;
 			}
 		}
 	}
-	while ( reset || !solver.isUndefined( chosenVariable ) );
-
-	assignments.push_back( a );
+	while( chosenVariable == 0 || !solver.isUndefined( chosenVariable ) );
 
 	return Literal( chosenVariable, POSITIVE );
-}
-
-bool
-PUPHeuristic::newPartnerUnitAvailable (
-	Pu *pu )
-{
-	if ( usedPartnerUnits < partnerUnits.size( ) )
-	{
-		*pu = partnerUnits[ usedPartnerUnits ];
-		usedPartnerUnits++;
-
-		return true;
-	}
-
-	return false;
-}
-
-void
-PUPHeuristic::incrementIndex (
-	)
-{
-	index++;					// next node in order
-	lastAssignTo = assignTo;
-	assignTo = -1;				// begin again with new unit
-}
-
-void
-PUPHeuristic::decrementIndex (
-	)
-{
-	index--;					// previous node in order
-	assignTo = lastAssignTo;
-	if ( assignTo == -1 )
-		usedPartnerUnits--;
-	assignTo++;					// try next existing partner unit
 }
 
 /*
@@ -638,31 +803,28 @@ PUPHeuristic::getVariable (
 {
 	Var var = 0;
 	bool found = false;
+	vector < ZoneAssignment* > za = node->usedIn;
 
-	if ( (*node).type == ZONE )
+	for ( unsigned int i = 0; i < za.size( ) && !found; i++ )
 	{
-		for ( unsigned int i = 0; i < unit2zone.size( ) && !found; i++ )
+		if ( za[ i ]->pu == unit->name )
 		{
-			if ( unit2zone[ i ].pu == (*unit).name && unit2zone[ i ].to == (*node).name )
-			{
-				var = unit2zone[ i ].positive;
-				found = true;
-			}
+			found = true;
+			var = za[ i ]->positive;
 		}
 	}
-	else if ( (*node).type == SENSOR )
-	{
-		for ( unsigned int i = 0; i < unit2sensor.size( ) && !found; i++ )
-		{
-			if ( unit2sensor[ i ].pu == (*unit).name && unit2sensor[ i ].to == (*node).name )
-			{
-				var = unit2sensor[ i ].positive;
-				found = true;
-			}
-		}
-	}
-
-	assert_msg ( found, "Variable for " << (*unit).name << " to " << (*node).name << " not found!" );
 
 	return var;
+}
+
+/*
+ * handle conflict
+ */
+void
+PUPHeuristic::conflictOccurred(
+	)
+{
+	conflictOccured = true;
+	conflictHandled = false;
+	conflictIndex = 0;
 }

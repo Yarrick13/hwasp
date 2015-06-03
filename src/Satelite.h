@@ -29,6 +29,7 @@ using namespace std;
 #include "Clause.h"
 #include "stl/UnorderedSet.h"
 #include "stl/Heap.h"
+#include "util/Options.h"
 
 class Satelite;
 
@@ -216,8 +217,7 @@ Satelite::addClauseInSubsumptionQueue(
 bool
 Satelite::simplify()
 {
-	return true;
-    active = true;
+	active = true;
     bool result = simplificationsMinisat2();
     active = false;
     

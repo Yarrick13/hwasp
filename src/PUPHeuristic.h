@@ -19,11 +19,15 @@
 #ifndef PUPHEURISTIC_H
 #define	PUPHEURISTIC_H
 
+#include <string>
+#include <vector>
+
 #define U2Z 1
 #define U2S 2
 #define ZONE 1
 #define SENSOR 2
 
+#include "util/Constants.h"
 #include "util/Options.h"
 #include "util/Trace.h"
 #include "Literal.h"
@@ -49,11 +53,11 @@ class PUPHeuristic : public Heuristic
         void onNewVariable( Var v ) { variables.push_back( v ); };
         void onNewVariableRuntime( Var ) { };
         void onFinishedParsing ( );
-        void onLiteralInvolvedInConflict( Literal ) { handleConflict = true; };
+        void onLiteralInvolvedInConflict( Literal ) { };
         void onUnrollingVariable( Var ) { };
         void incrementHeuristicValues( Var ) { };
         void simplifyVariablesAtLevelZero() { };
-        void conflictOccurred()  { handleConflict = true; };
+        void conflictOccurred( );
 
     protected:
         Literal makeAChoiceProtected();
@@ -61,40 +65,13 @@ class PUPHeuristic : public Heuristic
     private:
 		unsigned int startAt;					// current starting node
 		unsigned int index;						// current order index ( next node to be considered )
-		unsigned int redo;						// current redo index														delete
-		bool doRedo;							// is redo necessary														delete
 		unsigned int usedPartnerUnits;			// currently used partner units / index of the next partner unit to use
 		unsigned int maxPu;						// maximum number of partner units per unit ( fixed to 2 )
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit ( fixed to 2 )
-		int assignTo;							// next partner unit to be assign to the current considered node ( -1 -> new unit )
-		int lastAssignTo;						// last assignTo value
-		bool handleConflict;					// has a conflict to handled before the next assignment is chosen?
 		bool isConsitent;
-
-		// represents either a zone or a sensor
-		struct Node
-		{
-			string name;
-			Var var;
-			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
-			unsigned int considered;			// already considered for current startAt?
-			unsigned int type;					// ZONE or SENSOR
-		};
-
-		// represents a partner unit
-		struct Pu
-		{
-			string name;
-			Var var;
-		};
-
-		// represents a zone to sensor connection ( positive or negative variable )
-		struct Connection
-		{
-			string from;
-			string to;
-			Var var;
-		};
+		bool conflictOccured;
+		bool conflictHandled;
+		unsigned int conflictIndex;
 
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
@@ -105,13 +82,41 @@ class PUPHeuristic : public Heuristic
 			Var negative;
 		};
 
+		// represents either a zone or a sensor
+		struct Node
+		{
+			string name;
+			Var var;
+			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
+			unsigned int type;					// ZONE or SENSOR
+			unsigned int considered;
+
+			vector < ZoneAssignment* > usedIn;
+		};
+
+		// represents a partner unit
+		struct Pu
+		{
+			string name;
+			Var var;
+
+			vector < ZoneAssignment* > usedIn;
+		};
+
+		// represents a zone to sensor connection ( positive or negative variable )
+		struct Connection
+		{
+			string from;
+			string to;
+			Var var;
+		};
+
 		// represents an assignment done by the heuristic
 		struct Assignment
 		{
-			unsigned int index;					// order index corresponding to this assignment ( zone or sensor )
-			unsigned int usedPartnerUnits;		// used partner unit at the time of this assignment
-			int toUnit;							// partner unit used in this assignment
 			Var variable;
+			string name;
+			vector < string > triedUnits;
 		};
 
 		vector < Var > variables;
@@ -124,19 +129,24 @@ class PUPHeuristic : public Heuristic
 
 		vector < Node* > order;					// current node order
 		vector < Assignment > assignments;		// current assignments done by the heuristic
-
-		void getName( string atom, string *name );
-		void getName( string atom, string *name1, string *name2 );
+		vector < Var > undefined;
 
 		void initRelation ( );
 		bool resetHeuristic ( );
 		void processVariable ( Var v );
 		void initUnitAssignments( ZoneAssignment pu, unsigned int sign, unsigned int type );
 		bool createOrder ( );
-		bool newPartnerUnitAvailable ( Pu *pu );
-		void incrementIndex ( );
-		void decrementIndex ( );
+
 		Var getVariable ( Pu *unit, Node *node );
+
+		void getName( string atom, string *name );
+		void getName( string atom, string *name1, string *name2 );
+
+		bool searchAndAddAssignment( Var variable );
+		bool getTriedAssignments( Node* node, vector < string >* tried );
+		bool getUnusedPu( Pu* pu );
+		bool isPartnerUsed( Pu pu );
+		bool getUntriedPu( Pu* pu, vector < string > tried );
 };
 
 #endif
