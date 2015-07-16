@@ -65,13 +65,13 @@ class PUPHeuristic : public Heuristic
     private:
 		unsigned int startAt;					// current starting node
 		unsigned int index;						// current order index ( next node to be considered )
-		unsigned int usedPartnerUnits;			// currently used partner units / index of the next partner unit to use
 		unsigned int maxPu;						// maximum number of partner units per unit ( fixed to 2 )
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit ( fixed to 2 )
 		bool isConsitent;
 		bool conflictOccured;
 		bool conflictHandled;
-		unsigned int conflictIndex;
+		unsigned int assignedSinceConflict;
+		bool redoAfterConflict;
 
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
@@ -115,8 +115,8 @@ class PUPHeuristic : public Heuristic
 		struct Assignment
 		{
 			Var variable;
-			string name;
-			vector < string > triedUnits;
+			Pu currentPu;
+			vector < Var > triedUnits;
 		};
 
 		vector < Var > variables;
@@ -142,11 +142,12 @@ class PUPHeuristic : public Heuristic
 		void getName( string atom, string *name );
 		void getName( string atom, string *name1, string *name2 );
 
-		bool searchAndAddAssignment( Var variable );
-		bool getTriedAssignments( Node* node, vector < string >* tried );
+		bool searchAndAddAssignment( Var variable, Pu pu );
+		bool getTriedAssignments( Node* node, vector < Var >* tried );
 		bool getUnusedPu( Pu* pu );
 		bool isPartnerUsed( Pu pu );
-		bool getUntriedPu( Pu* pu, vector < string > tried );
+		bool getUntriedPu( Pu* pu, vector < Var > tried );
+		bool getPu( Var assignment, Pu *pu );
 };
 
 #endif

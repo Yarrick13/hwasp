@@ -575,6 +575,9 @@ Satelite::simplificationsMinisat2()
     if( solver.numberOfVariables() > 250000 )
         return true;
     
+    if(wasp::Options::decisionPolicy == HEURISTIC_PUP)
+          disableVariableElimination();
+
     for( unsigned int i = 1; i <= solver.numberOfVariables(); i++ )
     {
         assert( touchedVariables.size() == i );

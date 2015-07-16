@@ -50,14 +50,16 @@ namespace wasp
             static unsigned int queryAlgorithm;
             static unsigned int queryVerbosity;
             
+            static DECISION_POLICY decisionPolicy;
+
         private:
 
             static DELETION_POLICY deletionPolicy;
 
             static unsigned int deletionThreshold;
-            
-            static DECISION_POLICY decisionPolicy;
 
+            //static DECISION_POLICY decisionPolicy;
+            
             static vector< const char* > inputFiles;
 
             static unsigned int decisionThreshold;
