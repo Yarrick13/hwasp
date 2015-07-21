@@ -34,6 +34,9 @@ ColouringHeuristic::ColouringHeuristic(
 {
 }
 
+/*
+ * processes the input variables
+ */
 void
 ColouringHeuristic::processVariable (
     Var v )
@@ -98,6 +101,9 @@ ColouringHeuristic::processVariable (
 	}
 }
 
+/*
+ * initialize heuristic after input parsing
+ */
 void
 ColouringHeuristic::onFinishedParsing (
 	)
@@ -143,6 +149,7 @@ ColouringHeuristic::initDegree(
 	}
 }
 
+
 void
 ColouringHeuristic::initUsedIn(
 	)
@@ -160,6 +167,9 @@ ColouringHeuristic::initUsedIn(
 	}
 }
 
+/*
+ * make choice for solver
+ */
 Literal
 ColouringHeuristic::makeAChoiceProtected( )
 {
@@ -167,10 +177,12 @@ ColouringHeuristic::makeAChoiceProtected( )
 	Node* current;
 	bool found = false;
 
+	// handle conflict case
 	if ( conflictOccured )
 	{
 		unsigned int conflictIndex = 0;
 
+		// reset to first assignment with truth value not TRUE
 		for ( conflictIndex = 0; conflictIndex < nodes.size( ) && !found; conflictIndex++ )
 		{
 			if ( solver.getTruthValue( nodes[ conflictIndex ].usedIn[ nodes[ conflictIndex ].current ]->variable ) != TRUE )
@@ -181,6 +193,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 			}
 		}
 
+		// clear tried assignment for all following
 		found = true;
 		for ( ; conflictIndex < nodes.size( ) && found; conflictIndex++ )
 		{
@@ -206,6 +219,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 		{
 			current = &nodes[ index++ ];
 
+			// check if the node is already coloured
 			found = false;
 			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
 			{
@@ -223,6 +237,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 		}
 		while( found );
 
+		// loop over all colours for the first colour assignment of each node
 		unsigned int choice = 0;
 		if ( index == ( firstChoiceIndex + 1 ) )
 		{
@@ -230,6 +245,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 			firstChoiceIndex++;
 		}
 
+		// find possible assingment
 		found = false;
 		for ( unsigned int i = choice; i < current->usedIn.size() && !found; i++ )
 		{
@@ -295,7 +311,13 @@ ColouringHeuristic::makeAChoiceProtected( )
 	return Literal( chosenVariable, POSITIVE );
 }
 
-
+/*
+ * Quicksort (DESC) for items according to their size
+ *
+ * @param 	items	the items
+ * @param	p		startindex( 0 )
+ * @param 	q		endindex( items.size( ) )
+ */
 void
 ColouringHeuristic::quicksort(
 	vector< Node >& nodes,
@@ -311,7 +333,13 @@ ColouringHeuristic::quicksort(
     }
 }
 
-
+/*
+ * partitioning method for quicksort
+ *
+ * @param 	items	the items
+ * @param	p		startindex
+ * @param 	q		endindex
+ */
 int
 ColouringHeuristic::partition(
 	vector< Node >& nodes,

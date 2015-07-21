@@ -74,13 +74,6 @@ class ColouringHeuristic : public Heuristic
         	string name;
         };
 
-        struct Assignment
-        {
-        	Var variable;
-        	ColourAssignment* current;
-        	vector< ColourAssignment* > tried;
-        };
-
         vector< Var > variables;
         vector< Node > nodes;
         vector< Link > links;
