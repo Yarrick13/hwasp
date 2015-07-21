@@ -139,9 +139,6 @@ class PUPHeuristic : public Heuristic
 
 		Var getVariable ( Pu *unit, Node *node );
 
-		void getName( string atom, string *name );
-		void getName( string atom, string *name1, string *name2 );
-
 		bool searchAndAddAssignment( Var variable, Pu pu );
 		bool getTriedAssignments( Node* node, vector < Var >* tried );
 		bool getUnusedPu( Pu* pu );

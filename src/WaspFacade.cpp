@@ -30,6 +30,8 @@
 
 #include "MinisatHeuristic.h"
 #include "PUPHeuristic.h"
+#include "ColouringHeuristic.h"
+#include "BinPackingHeuristic.h"
 #include "outputBuilders/MultiOutputBuilder.h"
 #include "QueryInterface.h"
 
@@ -194,6 +196,14 @@ WaspFacade::setDecisionPolicy(
         case HEURISTIC_PUP:
             solver.setHeuristic( new PUPHeuristic( solver ) );
             break;
+
+        case HEURISTIC_COLOURING:
+        	solver.setHeuristic( new ColouringHeuristic( solver ) );
+        	break;
+
+        case HEURISTIC_BINPACKING:
+        	solver.setHeuristic( new BinPackingHeuristic( solver ) );
+        	break;
         
         case HEURISTIC_MINISAT:
             solver.setHeuristic( new MinisatHeuristic( solver ) );

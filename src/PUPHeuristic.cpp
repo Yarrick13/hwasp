@@ -27,6 +27,7 @@
 #include "util/Assert.h"
 #include "util/Constants.h"
 #include "util/VariableNames.h"
+#include "util/HeuristicUtil.h"
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), isConsitent( true ), conflictOccured( false ),
@@ -53,7 +54,7 @@ PUPHeuristic::processVariable (
 
 	if( name.compare( 0, 5, "zone(" ) == 0 )
 	{
-		getName( name, &tmp );
+		HeuristicUtil::getName( name, &tmp );
 
 		Node zone;
 		zone.name = tmp;
@@ -67,7 +68,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
 	{
-		getName( name, &tmp );
+		HeuristicUtil::getName( name, &tmp );
 
 		Node sensor;
 		sensor.name = tmp;
@@ -81,7 +82,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 12, "zone2sensor(" ) == 0 )
 	{
-		getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 		Connection c;
 		c.from = tmp;
@@ -94,7 +95,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 8, "comUnit(" ) == 0 )
 	{
-		getName( name, &tmp );
+		HeuristicUtil::getName( name, &tmp );
 
 		Pu pu;
 		pu.name = tmp;
@@ -106,7 +107,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 10, "unit2zone(" ) == 0 )
 	{
-		getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 		ZoneAssignment za;
 		za.pu = tmp;
@@ -119,7 +120,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 11, "-unit2zone(" ) == 0 )
 	{
-		getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 		ZoneAssignment za;
 		za.pu = tmp;
@@ -132,7 +133,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 12, "unit2sensor(" ) == 0 )
 	{
-		getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 		ZoneAssignment za;
 		za.pu = tmp;
@@ -145,7 +146,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 13, "-unit2sensor(" ) == 0 )
 	{
-		getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 		ZoneAssignment za;
 		za.pu = tmp;
@@ -158,7 +159,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 12, "maxElements(" ) == 0 )
 	{
-		getName( name, &tmp );
+		HeuristicUtil::getName( name, &tmp );
 
 		maxElementsOnPu = strtoul( tmp.c_str(), NULL, 0 );
 
@@ -166,7 +167,7 @@ PUPHeuristic::processVariable (
 	}
 	else if( name.compare( 0, 6, "maxPU(" ) == 0 )
 	{
-		getName( name, &tmp );
+		HeuristicUtil::getName( name, &tmp );
 
 		maxPu = strtoul( tmp.c_str(), NULL, 0 );
 
@@ -199,50 +200,6 @@ PUPHeuristic::onFinishedParsing (
 		isConsitent = resetHeuristic( );
 
 	trace_msg( heuristic, 1, "Start heuristic" );
-}
-
-/*
- * parse term of an unary atoms
- * 		( zones, sensors and partner units )
- *
- * 	@param atom 	the atom
- * 	@param name		the term
- */
-void
-PUPHeuristic::getName(
-	string atom,
-	string *name )
-{
-	unsigned int start = atom.find_first_of( "(" );
-	unsigned int end = atom.find_last_of( ")" );
-
-	assert_msg( start != string::npos && end != string::npos && start < end, "Error while processing " + atom );
-
-	*name = atom.substr( start + 1, end - start - 1 );
-}
-
-/*
- * read terms of a binary atom
- * 		( unit2zone or unit2sensor )
- *
- * 	@param atom 	the atom
- * 	@param name1	the first term
- * 	@param name2 	the second term
- */
-void
-PUPHeuristic::getName(
-	string atom,
-	string *name1,
-	string *name2 )
-{
-	unsigned int start = atom.find_first_of( "(" );
-	unsigned int middle = atom.find_first_of( "," );
-	unsigned int end = atom.find_last_of( ")" );
-
-	assert_msg( start != string::npos && end != string::npos && start < end, "Error while processing " + atom );
-
-	*name1 = atom.substr( start + 1, middle - start - 1 );
-	*name2 = atom.substr( middle + 1, end - middle - 1 );
 }
 
 /*
@@ -622,7 +579,7 @@ PUPHeuristic::getPu(
 	string node;
 	bool found = false;
 
-	getName( VariableNames::getName( assignment ), &unit, &node );
+	HeuristicUtil::getName( VariableNames::getName( assignment ), &unit, &node );
 
 	for ( unsigned int i = 0; i < partnerUnits.size( ) && !found; i++ )
 	{
@@ -800,7 +757,7 @@ PUPHeuristic::makeAChoiceProtected( )
 		// chosen variable is zero if all possible partner unit has been tried
 		if ( chosenVariable == 0 )
 		{
-			trace_msg( heuristic, 3, "Chosen variable is zero ->"  );
+			trace_msg( heuristic, 3, "Chosen variable is zero"  );
 
 			if ( index > 1 )
 			{
