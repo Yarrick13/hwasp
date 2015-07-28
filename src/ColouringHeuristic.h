@@ -41,6 +41,7 @@ class ColouringHeuristic : public Heuristic
     private:
         unsigned int index;
         unsigned int firstChoiceIndex;
+        unsigned int numberOfColours;
         bool conflictOccured;
 
         struct ColourAssignment
@@ -50,44 +51,26 @@ class ColouringHeuristic : public Heuristic
 			string colour;
 		};
 
-        struct Node
+        struct Vertex
 		{
-			Var variable;
 			string name;
 			unsigned int degree;
 
-			vector< ColourAssignment* > usedIn;
+			vector< ColourAssignment > usedIn;
 			vector< bool > tried;
 			unsigned int current;
 		};
 
-        struct Link
-        {
-        	Var variable;
-        	string from;
-        	string to;
-        };
-
-        struct Colour
-        {
-        	Var variable;
-        	string name;
-        };
-
         vector< Var > variables;
-        vector< Node > nodes;
-        vector< Link > links;
-        vector< Colour > colours;
+        vector< Vertex > vertices;
         vector< ColourAssignment > colourAssignments;
 
-        vector< Node* > order;
+        vector< Vertex* > order;
 
         void processVariable( Var v );
-        void initDegree( );
-        void initUsedIn( );
 
-        void quicksort( vector< Node > &nodes, unsigned int p, unsigned int q );
-        int partition( vector< Node > &nodes, unsigned int p, unsigned int q);
+        void quicksort( vector< Vertex > &vertices, unsigned int p, unsigned int q );
+        int partition( vector< Vertex > &vertices, unsigned int p, unsigned int q);
 };
 
 #endif

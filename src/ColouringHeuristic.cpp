@@ -22,6 +22,7 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#include <time.h>
 
 #include "Solver.h"
 #include "util/Assert.h"
@@ -30,7 +31,7 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), firstChoiceIndex( 0 ), conflictOccured( false )
+    Solver& s ) : Heuristic( s ), index( 0 ), firstChoiceIndex( 0 ), numberOfColours( 0 ), conflictOccured( false )
 {
 }
 
@@ -48,45 +49,10 @@ ColouringHeuristic::processVariable (
 	string tmp;
 	string tmp2;
 
-	if( name.compare( 0, 5, "node(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
+	bool found;
+	unsigned int i;
 
-		Node node;
-		node.variable = v;
-		node.name = tmp;
-		node.degree = 0;
-
-		nodes.push_back( node );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( node )" );
-	}
-	else if( name.compare( 0, 5, "link(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		Link link;
-		link.variable = v;
-		link.from = tmp;
-		link.to = tmp2;
-
-		links.push_back( link );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( link )" );
-	}
-	else if( name.compare( 0, 7, "colour(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
-
-		Colour col;
-		col.variable = v;
-		col.name = tmp;
-
-		colours.push_back( col );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( colour )" );
-	}
-	else if( name.compare( 0, 13, "chosenColour(" ) == 0 )
+	if( name.compare( 0, 13, "vertex_color(" ) == 0 )
 	{
 		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
@@ -97,7 +63,63 @@ ColouringHeuristic::processVariable (
 
 		colourAssignments.push_back( ca );
 
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( colour assignment )" );
+		found = false;
+		for ( i = 0; i < vertices.size( ) && !found; i++ )
+		{
+			if ( vertices[ i ].name == tmp )
+			{
+				found = true;
+				vertices[ i ].usedIn.push_back( ca );
+				vertices[ i ].tried.push_back( false );
+			}
+		}
+
+		if ( !found )
+		{
+			Vertex vertex;
+			vertex.name = tmp;
+			vertex.degree = 0;
+			vertex.usedIn.push_back( ca );
+			vertex.tried.push_back( false );
+
+			vertices.push_back( vertex );
+		}
+
+		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( colour assignment and vertex )" );
+	}
+	else if( name.compare( 0, 7, "degree(" ) == 0 )
+	{
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+		found = false;
+		for ( i = 0; i < vertices.size( ) && !found; i++ )
+		{
+			if ( vertices[ i ].name == tmp )
+			{
+				found = true;
+				vertices[ i ].degree = atoi( tmp2.c_str( ) );
+			}
+		}
+
+		if ( !found )
+		{
+			Vertex vertex;
+			vertex.name = tmp;
+			vertex.degree = 0;
+			vertex.degree = atoi( tmp2.c_str( ) );
+
+			vertices.push_back( vertex );
+		}
+
+		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( degree and vertex )" );
+	}
+	else if( name.compare( 0, 11, "nrofcolors(" ) == 0 )
+	{
+		HeuristicUtil::getName( name, &tmp );
+
+		numberOfColours = atoi( tmp.c_str( ) );
+
+		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( number of colours )" );
 	}
 }
 
@@ -119,52 +141,15 @@ ColouringHeuristic::onFinishedParsing (
 			processVariable( variable );
 	}
 
-	trace_msg( heuristic, 2, "Initializing vertices" );
-
-	initDegree( );
-	initUsedIn( );
-
 	trace_msg( heuristic, 1, "Start heuristic" );
 	trace_msg( heuristic, 2, "Creating order" );
 
-	quicksort( nodes, 0, nodes.size( ) );
+	quicksort( vertices, 0, vertices.size( ) );
 
-	for ( unsigned int i = 0; i < nodes.size( ); i++ )
-		order += nodes[ i ].name + ", ";
+	for ( unsigned int i = 0; i < vertices.size( ); i++ )
+		order += vertices[ i ].name + ", ";
 
 	trace_msg( heuristic, 3, "Considering order " + order );
-}
-
-void
-ColouringHeuristic::initDegree(
-	)
-{
-	for ( unsigned int i = 0; i < nodes.size( ); i++ )
-	{
-		for ( Link l : links )
-		{
-			if ( nodes[ i ].name == l.from )
-				nodes[ i ].degree++;
-		}
-	}
-}
-
-
-void
-ColouringHeuristic::initUsedIn(
-	)
-{
-	for ( unsigned int i = 0; i < nodes.size( ); i++ )
-	{
-		for ( unsigned int j = 0; j < colourAssignments.size( ); j++ )
-		{
-			if ( nodes[ i ].name == colourAssignments[ j ].node )
-			{
-				nodes[ i ].usedIn.push_back( &colourAssignments[ j ] );
-				nodes[ i ].tried.push_back( false );
-			}
-		}
-	}
 }
 
 /*
@@ -174,7 +159,7 @@ Literal
 ColouringHeuristic::makeAChoiceProtected( )
 {
 	Var chosenVariable = 0;
-	Node* current;
+	Vertex* current;
 	bool found = false;
 
 	// handle conflict case
@@ -183,11 +168,11 @@ ColouringHeuristic::makeAChoiceProtected( )
 		unsigned int conflictIndex = 0;
 
 		// reset to first assignment with truth value not TRUE
-		for ( conflictIndex = 0; conflictIndex < nodes.size( ) && !found; conflictIndex++ )
+		for ( conflictIndex = 0; conflictIndex < vertices.size( ) && !found; conflictIndex++ )
 		{
-			if ( solver.getTruthValue( nodes[ conflictIndex ].usedIn[ nodes[ conflictIndex ].current ]->variable ) != TRUE )
+			if ( solver.getTruthValue( vertices[ conflictIndex ].usedIn[ vertices[ conflictIndex ].current ].variable ) != TRUE )
 			{
-				trace_msg( heuristic, 3, "Reset to node " << nodes[ conflictIndex ].name << " due to conflict" );
+				trace_msg( heuristic, 3, "Reset to Vertex " << vertices[ conflictIndex ].name << " due to conflict" );
 				index = conflictIndex;
 				found = true;
 			}
@@ -195,14 +180,14 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 		// clear tried assignment for all following
 		found = true;
-		for ( ; conflictIndex < nodes.size( ) && found; conflictIndex++ )
+		for ( ; conflictIndex < vertices.size( ) && found; conflictIndex++ )
 		{
 			found = false;
-			for ( unsigned int i = 0; i < nodes[ conflictIndex ].tried.size( ); i++ )
+			for ( unsigned int i = 0; i < vertices[ conflictIndex ].tried.size( ); i++ )
 			{
-				if ( nodes[ conflictIndex ].tried[ i ] == true )
+				if ( vertices[ conflictIndex ].tried[ i ] == true )
 				{
-					nodes[ conflictIndex ].tried[ i ] = false;
+					vertices[ conflictIndex ].tried[ i ] = false;
 					found = true;
 				}
 			}
@@ -217,21 +202,21 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 		do
 		{
-			current = &nodes[ index++ ];
+			current = &vertices[ index++ ];
 
-			// check if the node is already coloured
+			// check if item has already been assigned
 			found = false;
 			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
 			{
-				if ( solver.getTruthValue( current->usedIn[ i ]->variable ) == TRUE )
+				if ( solver.getTruthValue( current->usedIn[ i ].variable ) == TRUE )
 				{
 					found = true;
 					current->tried[ i ] = true;
 					current->current = i;
 
-					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
-													 << current->usedIn[ i ]->variable << " " << Literal(current->usedIn[ i ]->variable, POSITIVE)
-													 << " -> continue with next node");
+					trace_msg( heuristic, 3, "Vertex " << current->name << " is already assigned to with "
+													 << current->usedIn[ i ].variable << " " << Literal(current->usedIn[ i ].variable, POSITIVE)
+													 << " -> continue with next vertex");
 				}
 			}
 		}
@@ -241,7 +226,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 		unsigned int choice = 0;
 		if ( index == ( firstChoiceIndex + 1 ) )
 		{
-			choice = firstChoiceIndex % colours.size( );
+			choice = firstChoiceIndex % numberOfColours;
 			firstChoiceIndex++;
 		}
 
@@ -255,7 +240,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 				current->current = i;
 
 				found = true;
-				chosenVariable = current->usedIn[ i ]->variable;
+				chosenVariable = current->usedIn[ i ].variable;
 			}
 		}
 
@@ -268,18 +253,18 @@ ColouringHeuristic::makeAChoiceProtected( )
 				trace_msg( heuristic, 3, "No more possibilities to place this node -> go one step back"  );
 				index -= 2;		// -2 because the index has already been incremented
 
-				while ( solver.getTruthValue( nodes[ index ].usedIn[ nodes[ index ].current ]->variable) != UNDEFINED )
+				while ( solver.getTruthValue( vertices[ index ].usedIn[ vertices[ index ].current ].variable) != UNDEFINED )
 					solver.unrollOne( );
 
 				found = true;
-				for ( unsigned int conflictIndex = index + 1 ; conflictIndex < nodes.size( ) && found; conflictIndex++ )
+				for ( unsigned int conflictIndex = index + 1 ; conflictIndex < vertices.size( ) && found; conflictIndex++ )
 				{
 					found = false;
-					for ( unsigned int i = 0; i < nodes[ conflictIndex ].tried.size( ); i++ )
+					for ( unsigned int i = 0; i < vertices[ conflictIndex ].tried.size( ); i++ )
 					{
-						if ( nodes[ conflictIndex ].tried[ i ] == true )
+						if ( vertices[ conflictIndex ].tried[ i ] == true )
 						{
-							nodes[ conflictIndex ].tried[ i ] = false;
+							vertices[ conflictIndex ].tried[ i ] = false;
 							found = true;
 						}
 					}
@@ -320,16 +305,16 @@ ColouringHeuristic::makeAChoiceProtected( )
  */
 void
 ColouringHeuristic::quicksort(
-	vector< Node >& nodes,
+	vector< Vertex >& vertices,
 	unsigned int p,
 	unsigned int q)
 {
 	unsigned int r;
     if ( p < q )
     {
-        r = partition ( nodes, p, q );
-        quicksort ( nodes, p, r );
-        quicksort ( nodes, r + 1, q );
+        r = partition ( vertices, p, q );
+        quicksort ( vertices, p, r );
+        quicksort ( vertices, r + 1, q );
     }
 }
 
@@ -342,24 +327,24 @@ ColouringHeuristic::quicksort(
  */
 int
 ColouringHeuristic::partition(
-	vector< Node >& nodes,
+	vector< Vertex >& vertices,
 	unsigned int p,
 	unsigned int q)
 {
-    Node node = nodes[ p ];
+    Vertex vertex = vertices[ p ];
     unsigned int i = p;
     unsigned int j;
 
     for ( j = p + 1; j < q; j++ )
     {
-        if ( nodes[ j ].degree > node.degree )
+        if ( vertices[ j ].degree > vertex.degree )
         {
             i = i + 1;
-            swap ( nodes[ i ], nodes[ j ] );
+            swap ( vertices[ i ], vertices[ j ] );
         }
 
     }
 
-    swap ( nodes[ i ], nodes[ p ] );
+    swap ( vertices[ i ], vertices[ p ] );
     return i;
 }

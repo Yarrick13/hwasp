@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 BinPackingHeuristic::BinPackingHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), conflictOccured( false )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), isConsistent( true ), conflictOccured( false )
 {
 }
 
@@ -48,88 +48,148 @@ BinPackingHeuristic::processVariable (
 	string tmp;
 	string tmp2;
 
-	if( name.compare( 0, 8, "binsize(" ) == 0 )
+	bool found;
+	unsigned int i;
+
+	if( name.compare( 0, 9, "nrofbins(" ) == 0 )
 	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp );
 
-		Bin bin;
-		bin.variable = variable;
-		bin.name = atoi( tmp.c_str( ) );
-		bin.size = atoi( tmp2.c_str( ) );
+		numberOfBins = atoi( tmp.c_str( ) );
 
-		bins.push_back( bin );
-
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( bin )" );
+		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( number of bins )" );
 	}
-	else if( name.compare( 0, 9, "itemsize(" ) == 0 )
+	else if( name.compare( 0, 11, "maxbinsize(" ) == 0 )
 	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
+		HeuristicUtil::getName( name, &tmp );
 
-		Item item;
-		item.variable = variable;
-		item.name = atoi( tmp.c_str( ) );
-		item.size = atoi( tmp2.c_str( ) );
+		maxBinSize = atoi( tmp.c_str( ) );
 
-		items.push_back( item );
-
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( item )" );
+		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( max binsize )" );
 	}
-	else if( name.compare( 0, 9, "item2bin(" ) == 0 )
+	else if( name.compare( 0, 5, "size(" ) == 0 )
 	{
 		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
-		Item2Bin i2b;
-		i2b.variable = variable;
-		i2b.bin = atoi( tmp2.c_str( ) );
-		i2b.item = atoi( tmp.c_str( ) );
+		// check if entry for this vertex already exists (create otherwise)
+		found = false;
+		for ( i = 0; i < items.size( ) && !found; i++ )
+		{
+			if ( items[ i ]->name == tmp )
+			{
+				found = true;
+				items[ i ]->size = atoi( tmp2.c_str( ) );
+			}
+		}
+		if ( !found )
+		{
+			Item* item = new Item;
+			item->name = tmp;
+			item->size = atoi( tmp2.c_str( ) );
+
+			items.push_back( item );
+		}
+
+		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( item and size )" );
+	}
+	else if( name.compare( 0, 11, "vertex_bin(" ) == 0 )
+	{
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+		Item2Bin* i2b = new Item2Bin;
+		i2b->variable = variable;
+		i2b->bin = tmp2;
+		i2b->item = tmp;
 
 		item2bin.push_back( i2b );
 
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( item2bin )" );
+		Bin* bin = new Bin;
+
+		// check if entry for this bin already exists (create otherwise)
+		found = false;
+		for ( i = 0; i < bins.size( ) && !found; i++ )
+		{
+			if ( bins[ i ]->name == tmp2 )
+			{
+				found = true;
+				bins[ i ]->usedIn.push_back( i2b );
+
+				bin = bins.back( );
+			}
+		}
+		if ( !found )
+		{
+			bin->name = tmp2;
+			bin->usedIn.push_back( i2b );
+
+			bins.push_back( bin );
+		}
+
+
+		Item* item = new Item;
+
+		// check if entry for this vertex already exists (create otherwise)
+		found = false;
+		for ( i = 0; i < items.size( ) && !found; i++ )
+		{
+			if ( items[ i ]->name == tmp )
+			{
+				found = true;
+				items[ i ]->usedIn.push_back( i2b );
+				items[ i ]->correspondingBin.push_back( bin );
+				items[ i ]->tried.push_back( false );
+			}
+		}
+
+		if ( !found )
+		{
+			item->name = tmp;
+			item->usedIn.push_back( i2b );
+			item->correspondingBin.push_back( bin );
+			item->tried.push_back( false );
+
+			items.push_back( item );
+		}
+
+		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( vertex bin )" );
 	}
 }
 
 /*
- * initializes the connections between bins and items for the herusitic
+ * initializes the itemsize for the heursitic
  */
 void
-BinPackingHeuristic::initUsedIn(
+BinPackingHeuristic::initItemsize(
 	)
 {
-	bool found;
-
-	for ( unsigned int i = 0; i < bins.size( ); i++ )
+	for ( Item* item : items )
 	{
-		for ( unsigned int j = 0; j < item2bin.size( ); j++ )
+		for ( unsigned int i = 0; i < item2bin.size( ); i++ )
 		{
-			if ( bins[ i ].name == item2bin[ j ].bin )
-				bins[ i ].usedIn.push_back( &item2bin[ j ] );
+			if ( item->name == item2bin[ i ]->item )
+				item2bin[ i ]->itemsize = item->size;
 		}
 	}
+}
 
-	for ( unsigned int i = 0; i < items.size( ); i++ )
+/*
+ * TRUE if there is a solution possible for the bin/vertex combination of FALSE otherwise
+ */
+bool
+BinPackingHeuristic::isPackingPossible(
+	)
+{
+	unsigned int size = 0;
+
+	for ( Item* item : items )
 	{
-		for ( unsigned int j = 0; j < item2bin.size( ); j++ )
-		{
-			if ( items[ i ].name == item2bin[ j ].item )
-			{
-				item2bin[ j ].itemsize = items[ i ].size;
-
-				items[ i ].usedIn.push_back( &item2bin[ j ] );
-				items[ i ].tried.push_back( false );
-
-				found = false;
-				for ( unsigned int k = 0; k < bins.size( ) && !found; k++ )
-				{
-					if ( bins[ k ].name == item2bin[ j ].bin )
-					{
-						items[ i ].correspondingBin.push_back( &bins[ k ] );
-						found = true;
-					}
-				}
-			}
-		}
+		size += item->size;
 	}
+
+	if ( size > numberOfBins * maxBinSize )
+		return false;
+
+	return true;
 }
 
 /*
@@ -137,7 +197,7 @@ BinPackingHeuristic::initUsedIn(
  *
  * @param 	bin		the bin
  */
-int
+unsigned int
 BinPackingHeuristic::getCurrentBinContentSize(
 	Bin* bin )
 {
@@ -170,19 +230,26 @@ BinPackingHeuristic::onFinishedParsing (
 			processVariable( variable );
 	}
 
-	trace_msg( heuristic, 2, "Initializing bins and items" );
-
-	initUsedIn( );
+	initItemsize( );
 
 	trace_msg( heuristic, 1, "Start heuristic" );
-	trace_msg( heuristic, 2, "Creating order" );
 
-	quicksort( items, 0, items.size( ) );
+	if ( !isPackingPossible( ) )
+	{
+		trace_msg( heuristic, 2, "Not enough space in all bins for all vertices!");
+		isConsistent = false;
+	}
+	else
+	{
+		trace_msg( heuristic, 2, "Creating order" );
 
-	for ( unsigned int i = 0; i < items.size( ); i++ )
-		order += to_string( items[ i ].name ) + ", ";
+		quicksort( items, 0, items.size( ) );
 
-	trace_msg( heuristic, 3, "Considering order " + order );
+		for ( unsigned int i = 0; i < items.size( ); i++ )
+			order += items[ i ]->name + ", ";
+
+		trace_msg( heuristic, 3, "Considering order " + order );
+	}
 }
 
 /*
@@ -196,6 +263,9 @@ BinPackingHeuristic::makeAChoiceProtected(
 	Item* current;
 	bool found = false;
 
+	if ( !isConsistent )
+		return Literal::null;
+
 	// reset index to the first assignment with truth value not TRUE in case of error
 	if ( conflictOccured )
 	{
@@ -203,9 +273,9 @@ BinPackingHeuristic::makeAChoiceProtected(
 
 		for ( conflictIndex = 0; conflictIndex < items.size( ) && !found; conflictIndex++ )
 		{
-			if ( solver.getTruthValue( items[ conflictIndex ].usedIn[ items[ conflictIndex ].current ]->variable ) != TRUE )
+			if ( solver.getTruthValue( items[ conflictIndex ]->usedIn[ items[ conflictIndex ]->current ]->variable ) != TRUE )
 			{
-				trace_msg( heuristic, 3, "Reset to item " << items[ conflictIndex ].name << " due to conflict" );
+				trace_msg( heuristic, 3, "Reset to item " << items[ conflictIndex ]->name << " due to conflict" );
 				index = conflictIndex;
 				found = true;
 			}
@@ -216,11 +286,11 @@ BinPackingHeuristic::makeAChoiceProtected(
 		for ( ; conflictIndex < items.size( ) && found; conflictIndex++ )
 		{
 			found = false;
-			for ( unsigned int i = 0; i < items[ conflictIndex ].tried.size( ); i++ )
+			for ( unsigned int i = 0; i < items[ conflictIndex ]->tried.size( ); i++ )
 			{
-				if ( items[ conflictIndex ].tried[ i ] == true )
+				if ( items[ conflictIndex ]->tried[ i ] == true )
 				{
-					items[ conflictIndex ].tried[ i ] = false;
+					items[ conflictIndex ]->tried[ i ] = false;
 					found = true;
 				}
 			}
@@ -235,7 +305,7 @@ BinPackingHeuristic::makeAChoiceProtected(
 
 		do
 		{
-			current = &items[ index++ ];
+			current = items[ index++ ];
 
 			// check if item has already been assigned
 			found = false;
@@ -259,7 +329,8 @@ BinPackingHeuristic::makeAChoiceProtected(
 		found = false;
 		for ( unsigned int i = 0; i < current->usedIn.size() && !found; i++ )
 		{
-			if ( current->tried[ i ] == false && ( getCurrentBinContentSize( current->correspondingBin[ i ] ) + current->size <= current->correspondingBin[ i ]->size ) )
+			if ( current->tried[ i ] == false &&
+					( getCurrentBinContentSize( current->correspondingBin[ i ] ) + current->size <= maxBinSize ) )
 			{
 				current->tried[ i ] = true;
 				current->current = i;
@@ -278,18 +349,18 @@ BinPackingHeuristic::makeAChoiceProtected(
 				trace_msg( heuristic, 3, "No more possibilities to place this item -> go one step back"  );
 				index -= 2;		// -2 because the index has already been incremented
 
-				while ( solver.getTruthValue( items[ index ].usedIn[ items[ index ].current ]->variable) != UNDEFINED )
+				while ( solver.getTruthValue( items[ index ]->usedIn[ items[ index ]->current ]->variable) != UNDEFINED )
 					solver.unrollOne( );
 
 				found = true;
 				for ( unsigned int conflictIndex = index + 1 ; conflictIndex < items.size( ) && found; conflictIndex++ )
 				{
 					found = false;
-					for ( unsigned int i = 0; i < items[ conflictIndex ].tried.size( ); i++ )
+					for ( unsigned int i = 0; i < items[ conflictIndex ]->tried.size( ); i++ )
 					{
-						if ( items[ conflictIndex ].tried[ i ] == true )
+						if ( items[ conflictIndex ]->tried[ i ] == true )
 						{
-							items[ conflictIndex ].tried[ i ] = false;
+							items[ conflictIndex ]->tried[ i ] = false;
 							found = true;
 						}
 					}
@@ -330,7 +401,7 @@ BinPackingHeuristic::makeAChoiceProtected(
  */
 void
 BinPackingHeuristic::quicksort(
-	vector< Item >& items,
+	vector< Item* >& items,
 	unsigned int p,
 	unsigned int q)
 {
@@ -352,17 +423,17 @@ BinPackingHeuristic::quicksort(
  */
 int
 BinPackingHeuristic::partition(
-	vector< Item >& items,
+	vector< Item* >& items,
 	unsigned int p,
 	unsigned int q)
 {
-    Item item = items[ p ];
+    Item* item = items[ p ];
     unsigned int i = p;
     unsigned int j;
 
     for ( j = p + 1; j < q; j++ )
     {
-        if ( items[ j ].size > item.size )
+        if ( items[ j ]->size > item->size )
         {
             i = i + 1;
             swap ( items[ i ], items[ j ] );

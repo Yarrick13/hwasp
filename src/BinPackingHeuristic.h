@@ -40,29 +40,29 @@ class BinPackingHeuristic : public Heuristic
 
     private:
         unsigned int index;				// current index for the heuristic (items)
+        unsigned int numberOfBins;
+        unsigned int maxBinSize;
+        bool isConsistent;
         bool conflictOccured;			// true after conflict, otherwise false
 
         struct Item2Bin
 		{
 			Var variable;
-			int bin;
-			int item;
+			string bin;
+			string item;
 			int itemsize;
 		};
 
         struct Bin
 		{
-        	Var variable;
-        	int name;
-        	int size;
+        	string name;
 
         	vector< Item2Bin* > usedIn;
 		};
 
         struct Item
         {
-        	Var variable;
-        	int name;
+        	string name;
         	int size;
 
         	vector< Item2Bin* > usedIn;
@@ -72,18 +72,17 @@ class BinPackingHeuristic : public Heuristic
         };
 
         vector< Var > variables;
-        vector< Bin > bins;
-        vector< Item > items;
-        vector< Item2Bin > item2bin;
-
-        vector< Item* > order;
+        vector< Bin* > bins;
+        vector< Item* > items;
+        vector< Item2Bin* > item2bin;
 
         void processVariable( Var variable );
-        void initUsedIn( );
-        int getCurrentBinContentSize( Bin* bin );
+        void initItemsize( );
+        bool isPackingPossible( );
+        unsigned int getCurrentBinContentSize( Bin* bin );
 
-        void quicksort( vector< Item > &items, unsigned int p, unsigned int q );
-		int partition( vector< Item > &items, unsigned int p, unsigned int q);
+        void quicksort( vector< Item* > &items, unsigned int p, unsigned int q );
+		int partition( vector< Item* > &items, unsigned int p, unsigned int q);
 };
 
 #endif

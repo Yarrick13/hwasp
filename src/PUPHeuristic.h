@@ -79,7 +79,6 @@ class PUPHeuristic : public Heuristic
 			string pu;
 			string to;
 			Var positive;
-			Var negative;
 		};
 
 		// represents either a zone or a sensor
@@ -134,7 +133,7 @@ class PUPHeuristic : public Heuristic
 		void initRelation ( );
 		bool resetHeuristic ( );
 		void processVariable ( Var v );
-		void initUnitAssignments( ZoneAssignment pu, unsigned int sign, unsigned int type );
+		void initUnitAssignments( ZoneAssignment pu, unsigned int type );
 		bool createOrder ( );
 
 		Var getVariable ( Pu *unit, Node *node );

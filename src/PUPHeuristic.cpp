@@ -114,20 +114,7 @@ PUPHeuristic::processVariable (
 		za.to = tmp2;
 		za.positive = v;
 
-		initUnitAssignments( za, POSITIVE, U2Z );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2zone )" );
-	}
-	else if( name.compare( 0, 11, "-unit2zone(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		ZoneAssignment za;
-		za.pu = tmp;
-		za.to = tmp2;
-		za.negative = v;
-
-		initUnitAssignments( za, NEGATIVE, U2Z );
+		initUnitAssignments( za, U2Z );
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2zone )" );
 	}
@@ -140,20 +127,7 @@ PUPHeuristic::processVariable (
 		za.to = tmp2;
 		za.positive = v;
 
-		initUnitAssignments( za, POSITIVE, U2S );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2sensor )" );
-	}
-	else if( name.compare( 0, 13, "-unit2sensor(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		ZoneAssignment za;
-		za.pu = tmp;
-		za.to = tmp2;
-		za.negative = v;
-
-		initUnitAssignments( za, NEGATIVE, U2S );
+		initUnitAssignments( za, U2S );
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2sensor )" );
 	}
@@ -322,7 +296,6 @@ PUPHeuristic::resetHeuristic (
 void
 PUPHeuristic::initUnitAssignments(
 	ZoneAssignment za,
-	unsigned int sign,
 	unsigned int type )
 {
 	bool found = false;
@@ -334,11 +307,7 @@ PUPHeuristic::initUnitAssignments(
 		{
 			if ( unit2zone[ i ].pu == za.pu && unit2zone[ i ].to == za.to )
 			{
-				if ( sign == POSITIVE )
-					unit2zone[ i ].positive = za.positive;
-				else
-					unit2zone[ i ].negative = za.negative;
-
+				unit2zone[ i ].positive = za.positive;
 				found = true;
 			}
 		}
@@ -349,11 +318,7 @@ PUPHeuristic::initUnitAssignments(
 		{
 			if ( unit2sensor[ i ].pu == za.pu && unit2sensor[ i ].to == za.to )
 			{
-				if ( sign == POSITIVE )
-					unit2sensor[ i ].positive = za.positive;
-				else
-					unit2sensor[ i ].negative = za.negative;
-
+				unit2sensor[ i ].positive = za.positive;
 				found = true;
 			}
 		}
@@ -415,7 +380,6 @@ PUPHeuristic::createOrder (
 		if ( nextNode >= order.size( ) )
 		{
 			trace_msg( heuristic, 1, "Not all zones/sensors are connected" );
-			//cout << "Not all zones/sensors are connected!" << endl;
 			return false;
 		}
 
@@ -426,7 +390,6 @@ PUPHeuristic::createOrder (
 	startAt++;
 
 	trace_msg( heuristic, 3, "Considering order " + orderOutput );
-	//cout << endl << "Considering order " + orderOutput << endl;
 
 	return true;
 }
