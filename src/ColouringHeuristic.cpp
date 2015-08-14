@@ -31,7 +31,8 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), firstChoiceIndex( 0 ), numberOfColours( 0 ), conflictOccured( false )
+    Solver& s ) : Heuristic( s ), index( 0 ), conflictIndex( 0 ), firstChoiceIndex( 0 ), numberOfColours( 0 ), conflictOccured( false ),
+	conflictHandled( true ), redoAfterConflict( false ), assignedSinceConflict( 0 )
 {
 }
 
@@ -52,7 +53,7 @@ ColouringHeuristic::processVariable (
 	bool found;
 	unsigned int i;
 
-	if( name.compare( 0, 13, "vertex_color(" ) == 0 )
+	if( name.compare( 0, 13, "chosenColour(" ) == 0 )
 	{
 		HeuristicUtil::getName( name, &tmp, &tmp2 );
 
@@ -70,7 +71,6 @@ ColouringHeuristic::processVariable (
 			{
 				found = true;
 				vertices[ i ].usedIn.push_back( ca );
-				vertices[ i ].tried.push_back( false );
 			}
 		}
 
@@ -80,7 +80,6 @@ ColouringHeuristic::processVariable (
 			vertex.name = tmp;
 			vertex.degree = 0;
 			vertex.usedIn.push_back( ca );
-			vertex.tried.push_back( false );
 
 			vertices.push_back( vertex );
 		}
@@ -152,49 +151,68 @@ ColouringHeuristic::onFinishedParsing (
 	trace_msg( heuristic, 3, "Considering order " + order );
 }
 
+bool
+ColouringHeuristic::searchAndAddAssignment(
+	Var variable )
+{
+	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
+
+	if ( current < assignments.size( ) )
+	{
+		assignments[ current ].current = variable;
+
+		if ( std::find( assignments[ current ].tried.begin( ), assignments[ current ].tried.end( ), variable ) == assignments[ current ].tried.end( ) )
+			assignments[ current ].tried.push_back( variable );
+
+		return true;
+	}
+	else
+	{
+		Assignment a;
+
+		a.current = variable;
+		a.tried.push_back( variable );
+
+		assignments.push_back( a );
+
+		return false;
+	}
+}
+
+bool
+ColouringHeuristic::getTriedAssignments(
+	Vertex* node,
+	vector < Var >* tried )
+{
+	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
+
+	if ( current < assignments.size( ) )
+	{
+		*tried = assignments[ current ].tried;
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * make choice for solver
  */
 Literal
 ColouringHeuristic::makeAChoiceProtected( )
 {
-	Var chosenVariable = 0;
 	Vertex* current;
-	bool found = false;
+	Var chosenVariable;
+	Assignment a;
+	bool found;
 
-	// handle conflict case
-	if ( conflictOccured )
-	{
-		unsigned int conflictIndex = 0;
-
-		// reset to first assignment with truth value not TRUE
-		for ( conflictIndex = 0; conflictIndex < vertices.size( ) && !found; conflictIndex++ )
-		{
-			if ( solver.getTruthValue( vertices[ conflictIndex ].usedIn[ vertices[ conflictIndex ].current ].variable ) != TRUE )
-			{
-				trace_msg( heuristic, 3, "Reset to Vertex " << vertices[ conflictIndex ].name << " due to conflict" );
-				index = conflictIndex;
-				found = true;
-			}
-		}
-
-		// clear tried assignment for all following
-		found = true;
-		for ( ; conflictIndex < vertices.size( ) && found; conflictIndex++ )
-		{
-			found = false;
-			for ( unsigned int i = 0; i < vertices[ conflictIndex ].tried.size( ); i++ )
-			{
-				if ( vertices[ conflictIndex ].tried[ i ] == true )
-				{
-					vertices[ conflictIndex ].tried[ i ] = false;
-					found = true;
-				}
-			}
-		}
-
-		conflictOccured = false;
-	}
+//	cout << endl << "assignments" << endl;
+//	for ( unsigned int i = 0; i < assignments.size( ); i++ )
+//	{
+//		cout << i << ": " << VariableNames::getName( assignments[ i ].current ) << " is " <<
+//				solver.getTruthValue( assignments[ i ].current ) << endl;
+//	}
+//	cout << endl;
 
 	do
 	{
@@ -202,45 +220,79 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 		do
 		{
+			if ( index >= vertices.size( ) )
+			{
+				assert( 0 && "assert index");
+			}
+
+			if ( conflictOccured )
+			{
+				found = false;
+				unsigned int pos = 0;
+
+				while ( pos < assignments.size( ) && !found )
+				{
+					if ( solver.getTruthValue( assignments[ pos ].current ) != TRUE )
+					{
+						found = true;
+						index = pos;
+						trace_msg( heuristic, 4, "Reset index to vertex " << vertices[ pos ].name << " ( index " << pos << " ) due to conflict" );
+					}
+					else
+						pos++;
+				}
+
+				while ( index < assignments.size( ) )
+					assignments.pop_back( );
+
+				conflictOccured = false;
+			}
+
+			found = false;
+
 			current = &vertices[ index++ ];
 
-			// check if item has already been assigned
-			found = false;
 			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
 			{
-				if ( solver.getTruthValue( current->usedIn[ i ].variable ) == TRUE )
+				ColourAssignment za = current->usedIn[ i ];
+				if ( solver.getTruthValue( za.variable ) == TRUE )
 				{
 					found = true;
-					current->tried[ i ] = true;
-					current->current = i;
 
-					trace_msg( heuristic, 3, "Vertex " << current->name << " is already assigned to with "
-													 << current->usedIn[ i ].variable << " " << Literal(current->usedIn[ i ].variable, POSITIVE)
-													 << " -> continue with next vertex");
+					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
+													 << za.variable << " " << Literal(za.variable, POSITIVE)
+													 << " -> continue with next zone/sensor");
+
+					searchAndAddAssignment( za.variable );
 				}
 			}
 		}
 		while( found );
 
-		// loop over all colours for the first colour assignment of each node
-		unsigned int choice = 0;
-		if ( index == ( firstChoiceIndex + 1 ) )
+		vector < Var > tried;
+		unsigned int choice = ( index - 1 ) % numberOfColours;	// do not start with the same colour at each node
+
+		// if no colours have been tried, get the first in the list ( according to choice )
+		if ( !getTriedAssignments( current, &tried ) )
 		{
-			choice = firstChoiceIndex % numberOfColours;
-			firstChoiceIndex++;
+			chosenVariable = current->usedIn[ choice ].variable;
+			searchAndAddAssignment( chosenVariable );
 		}
 
-		// find possible assingment
-		found = false;
-		for ( unsigned int i = choice; i < current->usedIn.size() && !found; i++ )
+		// if there are some tried colours, get the next
+		if ( chosenVariable == 0 )
 		{
-			if ( current->tried[ i ] == false )
+			for ( unsigned int i = 0; i < numberOfColours && !found; i++ )
 			{
-				current->tried[ i ] = true;
-				current->current = i;
+				unsigned int pos = ( i + choice ) % numberOfColours;
 
-				found = true;
-				chosenVariable = current->usedIn[ i ].variable;
+				if ( ( std::find( tried.begin(), tried.end(), current->usedIn[ pos ].variable ) == tried.end() ) )
+				{
+					chosenVariable = current->usedIn[ pos ].variable;
+					searchAndAddAssignment( chosenVariable );
+
+					found = true;
+				}
 			}
 		}
 
@@ -250,25 +302,15 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 			if ( index > 1 )
 			{
-				trace_msg( heuristic, 3, "No more possibilities to place this node -> go one step back"  );
+				trace_msg( heuristic, 3, "No more possibilities to colour this vertex -> go one step back"  );
 				index -= 2;		// -2 because the index has already been incremented
 
-				while ( solver.getTruthValue( vertices[ index ].usedIn[ vertices[ index ].current ].variable) != UNDEFINED )
+				while ( solver.getTruthValue( assignments[ index ].current ) != UNDEFINED )
 					solver.unrollOne( );
 
-				found = true;
-				for ( unsigned int conflictIndex = index + 1 ; conflictIndex < vertices.size( ) && found; conflictIndex++ )
-				{
-					found = false;
-					for ( unsigned int i = 0; i < vertices[ conflictIndex ].tried.size( ); i++ )
-					{
-						if ( vertices[ conflictIndex ].tried[ i ] == true )
-						{
-							vertices[ conflictIndex ].tried[ i ] = false;
-							found = true;
-						}
-					}
-				}
+				assignments.pop_back( );
+
+				conflictOccured = true;
 			}
 			else
 			{
@@ -287,7 +329,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 			}
 			if ( solver.getTruthValue( chosenVariable ) == TRUE )
 			{
-				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next node" );
+				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next zone/sensor" );
 			}
 		}
 	}

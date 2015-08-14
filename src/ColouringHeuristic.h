@@ -20,6 +20,7 @@
 #define	COLOURINGHEURISTIC_H
 
 #include "Heuristic.h"
+#include "util/VariableNames.h"
 
 class ColouringHeuristic : public Heuristic
 {
@@ -33,16 +34,21 @@ class ColouringHeuristic : public Heuristic
         void onUnrollingVariable( Var ){ }
         void incrementHeuristicValues( Var ){ }
         void simplifyVariablesAtLevelZero( ){ }
-        void conflictOccurred(){ conflictOccured = true; }
+        void conflictOccurred(){ conflictOccured = true; conflictHandled = false; }
 
     protected:
         Literal makeAChoiceProtected();
 
     private:
         unsigned int index;
+        unsigned int conflictIndex;
         unsigned int firstChoiceIndex;
         unsigned int numberOfColours;
         bool conflictOccured;
+
+        bool conflictHandled;
+        bool redoAfterConflict;
+        unsigned int assignedSinceConflict;
 
         struct ColourAssignment
 		{
@@ -57,18 +63,25 @@ class ColouringHeuristic : public Heuristic
 			unsigned int degree;
 
 			vector< ColourAssignment > usedIn;
-			vector< bool > tried;
-			unsigned int current;
+		};
+
+        struct Assignment
+		{
+			Var current;
+			vector < Var > tried;
 		};
 
         vector< Var > variables;
         vector< Vertex > vertices;
         vector< ColourAssignment > colourAssignments;
 
-        vector< Vertex* > order;
+        vector< Assignment > assignments;
+        vector < Var > undefined;
 
         void processVariable( Var v );
 
+        bool searchAndAddAssignment( Var variable );
+        bool getTriedAssignments( Vertex* node, vector < Var >* tried );
         void quicksort( vector< Vertex > &vertices, unsigned int p, unsigned int q );
         int partition( vector< Vertex > &vertices, unsigned int p, unsigned int q);
 };
