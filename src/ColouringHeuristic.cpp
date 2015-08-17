@@ -31,8 +31,7 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), conflictIndex( 0 ), firstChoiceIndex( 0 ), numberOfColours( 0 ), conflictOccured( false ),
-	conflictHandled( true ), redoAfterConflict( false ), assignedSinceConflict( 0 )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), conflictOccured( false ), choice( 0 )
 {
 }
 
@@ -79,6 +78,7 @@ ColouringHeuristic::processVariable (
 			Vertex vertex;
 			vertex.name = tmp;
 			vertex.degree = 0;
+			vertex.current= 0;
 			vertex.usedIn.push_back( ca );
 
 			vertices.push_back( vertex );
@@ -106,6 +106,7 @@ ColouringHeuristic::processVariable (
 			vertex.name = tmp;
 			vertex.degree = 0;
 			vertex.degree = atoi( tmp2.c_str( ) );
+			vertex.current = 0;
 
 			vertices.push_back( vertex );
 		}
@@ -129,7 +130,7 @@ void
 ColouringHeuristic::onFinishedParsing (
 	)
 {
-	string order = "";
+	string orderOutput = "";
 
 	trace_msg( heuristic, 1, "Initializing colouring heuristic" );
 	trace_msg( heuristic, 2, "Start processing variables" );
@@ -145,50 +146,103 @@ ColouringHeuristic::onFinishedParsing (
 
 	quicksort( vertices, 0, vertices.size( ) );
 
-	for ( unsigned int i = 0; i < vertices.size( ); i++ )
-		order += vertices[ i ].name + ", ";
+	order.push_back( newVertexDegree( ) );
+	order.back( ).degree = vertices[ 0 ].degree;
+	order.back( ).vertices.push_back( &vertices[ 0 ] );
 
-	trace_msg( heuristic, 3, "Considering order " + order );
+	for ( unsigned int i = 1; i < vertices.size( ); i++ )
+	{
+		if ( vertices[ i ].degree != order.back( ).degree )
+		{
+			order.push_back( newVertexDegree( ) );
+			order.back( ).degree = vertices[ i ].degree;
+		}
+
+		order.back( ).vertices.push_back( &vertices[ i ] );
+	}
+
+	for ( unsigned int i = 0; i < order.size( ); i++ )
+	{
+		orderOutput += "with degree " + to_string( order[ i ].degree ) + ": ";
+
+		for ( unsigned int j = 0; j < order[ i ].vertices.size( ); j++ )
+			orderOutput += order[ i ].vertices[ j ]->name + ", ";
+	}
+
+	trace_msg( heuristic, 3, "Considering order " + orderOutput );
 }
 
 bool
-ColouringHeuristic::searchAndAddAssignment(
+ColouringHeuristic::addAssignment(
+	Vertex *vertex,
 	Var variable )
 {
-	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
+	vertex->current = variable;
 
-	if ( current < assignments.size( ) )
-	{
-		assignments[ current ].current = variable;
+	if ( std::find( vertex->tried.begin( ), vertex->tried.end( ), variable ) == vertex->tried.end( ) )
+		vertex->tried.push_back( variable );
 
-		if ( std::find( assignments[ current ].tried.begin( ), assignments[ current ].tried.end( ), variable ) == assignments[ current ].tried.end( ) )
-			assignments[ current ].tried.push_back( variable );
-
-		return true;
-	}
-	else
-	{
-		Assignment a;
-
-		a.current = variable;
-		a.tried.push_back( variable );
-
-		assignments.push_back( a );
-
-		return false;
-	}
+	return true;
 }
 
 bool
 ColouringHeuristic::getTriedAssignments(
-	Vertex* node,
+	Vertex* vertex,
 	vector < Var >* tried )
 {
-	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
-
-	if ( current < assignments.size( ) )
+	if ( vertex->tried.size( ) > 0 )
 	{
-		*tried = assignments[ current ].tried;
+		*tried = vertex->tried;
+		return true;
+	}
+
+	return false;
+}
+
+bool
+ColouringHeuristic::getVertexMRV(
+	VertexDegree vd,
+	unsigned int* iv )
+{
+	bool found = false;
+	unsigned int mrv_min = numberOfColours + 1;
+	unsigned int indexVertex;
+	unsigned int mrv;
+
+	for ( unsigned int i = 0; i < vd.vertices.size( ); i++ )
+	{
+		if ( vd.vertices[ i ]->current == 0 || solver.getTruthValue( vd.vertices[ i ]->current ) != TRUE )
+		{
+			mrv = 0;
+
+			for ( ColourAssignment ca : vd.vertices[ i ]->usedIn )
+			{
+				if ( solver.getTruthValue( ca.variable ) == UNDEFINED )
+					mrv++;
+
+				if ( solver.getTruthValue( ca.variable ) == TRUE )
+				{
+					trace_msg( heuristic, 5, "Node " << vd.vertices[ i ]->name << " is already assigned with "
+													 << ca.variable << " " << Literal(ca.variable, POSITIVE) );
+
+					addAssignment( vd.vertices[ i ], ca.variable );
+					mrv = numberOfColours + 1;
+					break;
+				}
+			}
+
+			if ( mrv < mrv_min )
+			{
+				mrv_min = mrv;
+				indexVertex = i;
+				found = true;
+			}
+		}
+	}
+
+	if ( found )
+	{
+		*iv = indexVertex;
 		return true;
 	}
 
@@ -201,95 +255,103 @@ ColouringHeuristic::getTriedAssignments(
 Literal
 ColouringHeuristic::makeAChoiceProtected( )
 {
-	Vertex* current;
+	//Vertex* current;
+	VertexDegree current;
+	Vertex* currentVertex;
 	Var chosenVariable;
-	Assignment a;
-	bool found;
-
-//	cout << endl << "assignments" << endl;
-//	for ( unsigned int i = 0; i < assignments.size( ); i++ )
-//	{
-//		cout << i << ": " << VariableNames::getName( assignments[ i ].current ) << " is " <<
-//				solver.getTruthValue( assignments[ i ].current ) << endl;
-//	}
-//	cout << endl;
+	bool found = false;
 
 	do
 	{
-		chosenVariable = 0;
+		cout << endl << "assignments" << endl;
+		for ( unsigned int i = 0; i < vertices.size( ); i++ )
+		{
+			if ( vertices[ i ].current != 0 )
+				cout << i << ": " << VariableNames::getName( vertices[ i ].current ) << " is " <<
+						solver.getTruthValue( vertices[ i ].current ) << endl;
+		}
+		cout << endl;
+
+
+		if ( index >= order.size( ) )
+			assert ( 0 && "assert index" );
+
+		if ( conflictOccured )
+		{
+			bool indexReseted = false;
+			unsigned int maxIndex = index;
+
+			for ( unsigned int i = 0; i <= maxIndex; i++ )
+			{
+				for ( unsigned int j = 0; j < order[ i ].vertices.size( ); j++ )
+				{
+					if ( order[ i ].vertices[ j ]->current != 0 && solver.getTruthValue( order[ i ].vertices[ j ]->current ) != TRUE )
+					{
+						order[ i ].vertices[ j ]->current = 0;
+						order[ i ].vertices[ j ]->tried.clear( );
+
+						if ( !indexReseted )
+						{
+							index = i;
+							indexReseted = true;
+
+							//cout << "Reset index to vertex group with degree " << order[ index ].degree << " due to conflict" << endl;
+							trace_msg( heuristic, 4, "Reset index to vertex group with degree " << order[ index ].degree << " due to conflict" );
+						}
+					}
+				}
+			}
+
+			conflictOccured = false;
+		}
+
+		found = false;
 
 		do
 		{
-			if ( index >= vertices.size( ) )
+			unsigned int iv;
+			current = order[ index ];
+			//cout << "Looking for uncoloured vertex with degree " << to_string( current.degree ) << endl;
+			trace_msg( heuristic, 2, "Looking for uncoloured vertex with degree " << to_string( current.degree ) );
+
+			found = getVertexMRV( current, &iv );
+			if ( found )
 			{
-				assert( 0 && "assert index");
+				currentVertex = order[ index ].vertices[ iv ];
+				//cout << "Considering vertex " << currentVertex->name << endl;
+				trace_msg( heuristic, 3, "Considering vertex " << currentVertex->name );
 			}
-
-			if ( conflictOccured )
+			else
 			{
-				found = false;
-				unsigned int pos = 0;
-
-				while ( pos < assignments.size( ) && !found )
-				{
-					if ( solver.getTruthValue( assignments[ pos ].current ) != TRUE )
-					{
-						found = true;
-						index = pos;
-						trace_msg( heuristic, 4, "Reset index to vertex " << vertices[ pos ].name << " ( index " << pos << " ) due to conflict" );
-					}
-					else
-						pos++;
-				}
-
-				while ( index < assignments.size( ) )
-					assignments.pop_back( );
-
-				conflictOccured = false;
-			}
-
-			found = false;
-
-			current = &vertices[ index++ ];
-
-			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
-			{
-				ColourAssignment za = current->usedIn[ i ];
-				if ( solver.getTruthValue( za.variable ) == TRUE )
-				{
-					found = true;
-
-					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
-													 << za.variable << " " << Literal(za.variable, POSITIVE)
-													 << " -> continue with next zone/sensor");
-
-					searchAndAddAssignment( za.variable );
-				}
+				//cout << "No uncolored vertex left with degree " << to_string( current.degree ) << ". Continue with next degree." << endl;
+				trace_msg( heuristic, 3, "No uncolored vertex left with degree " << to_string( current.degree ) << ". Continue with next degree." );
+				index++;
 			}
 		}
-		while( found );
+		while ( !found );
+
+		found = false;
+		chosenVariable = 0;
 
 		vector < Var > tried;
-		unsigned int choice = ( index - 1 ) % numberOfColours;	// do not start with the same colour at each node
+		choice = (choice + 1) % numberOfColours;//( index - 1 ) % numberOfColours;
 
-		// if no colours have been tried, get the first in the list ( according to choice )
-		if ( !getTriedAssignments( current, &tried ) )
+		if ( !getTriedAssignments( currentVertex, &tried ) )
 		{
-			chosenVariable = current->usedIn[ choice ].variable;
-			searchAndAddAssignment( chosenVariable );
+			chosenVariable = currentVertex->usedIn[ choice ].variable;
+			addAssignment( currentVertex, chosenVariable );
 		}
 
-		// if there are some tried colours, get the next
 		if ( chosenVariable == 0 )
 		{
 			for ( unsigned int i = 0; i < numberOfColours && !found; i++ )
 			{
 				unsigned int pos = ( i + choice ) % numberOfColours;
 
-				if ( ( std::find( tried.begin(), tried.end(), current->usedIn[ pos ].variable ) == tried.end() ) )
+				if ( ( std::find( tried.begin(), tried.end(), currentVertex->usedIn[ pos ].variable ) == tried.end() ) )
 				{
-					chosenVariable = current->usedIn[ pos ].variable;
-					searchAndAddAssignment( chosenVariable );
+					chosenVariable = currentVertex->usedIn[ pos ].variable;
+					addAssignment( currentVertex, chosenVariable );
 
 					found = true;
 				}
@@ -300,15 +362,25 @@ ColouringHeuristic::makeAChoiceProtected( )
 		{
 			trace_msg( heuristic, 3, "Chosen variable is zero"  );
 
+			cout << endl << "assignments" << endl;
+			for ( unsigned int i = 0; i < vertices.size( ); i++ )
+			{
+				if ( vertices[ i ].current != 0 )
+					cout << i << ": " << VariableNames::getName( vertices[ i ].current ) << " is " <<
+							solver.getTruthValue( vertices[ i ].current ) << endl;
+			}
+			cout << endl;
+
 			if ( index > 1 )
 			{
+				cout << "No more possibilities to colour this vertex -> go one step back" << endl;
 				trace_msg( heuristic, 3, "No more possibilities to colour this vertex -> go one step back"  );
-				index -= 2;		// -2 because the index has already been incremented
+				//index -= 2;		// -2 because the index has already been incremented
 
-				while ( solver.getTruthValue( assignments[ index ].current ) != UNDEFINED )
-					solver.unrollOne( );
+				//while ( solver.getTruthValue( assignments[ index ].current ) != UNDEFINED )
+					//solver.unrollOne( );
 
-				assignments.pop_back( );
+				//assignments.pop_back( );
 
 				conflictOccured = true;
 			}
@@ -320,17 +392,16 @@ ColouringHeuristic::makeAChoiceProtected( )
 		}
 		else
 		{
+			//cout << "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << endl;
 			trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) );
 
 			if ( solver.getTruthValue( chosenVariable ) == FALSE )
 			{
+				//cout << "Chosen variable is already set to FALSE - try another assignment" << endl;
 				trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
-				index--;
 			}
 			if ( solver.getTruthValue( chosenVariable ) == TRUE )
-			{
-				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next zone/sensor" );
-			}
+				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next vertex" );
 		}
 	}
 	while( chosenVariable == 0 || !solver.isUndefined( chosenVariable ) );

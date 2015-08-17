@@ -34,21 +34,17 @@ class ColouringHeuristic : public Heuristic
         void onUnrollingVariable( Var ){ }
         void incrementHeuristicValues( Var ){ }
         void simplifyVariablesAtLevelZero( ){ }
-        void conflictOccurred(){ conflictOccured = true; conflictHandled = false; }
+        void conflictOccurred(){ conflictOccured = true; }
 
     protected:
         Literal makeAChoiceProtected();
 
     private:
         unsigned int index;
-        unsigned int conflictIndex;
-        unsigned int firstChoiceIndex;
         unsigned int numberOfColours;
         bool conflictOccured;
 
-        bool conflictHandled;
-        bool redoAfterConflict;
-        unsigned int assignedSinceConflict;
+        unsigned int choice;
 
         struct ColourAssignment
 		{
@@ -63,25 +59,30 @@ class ColouringHeuristic : public Heuristic
 			unsigned int degree;
 
 			vector< ColourAssignment > usedIn;
-		};
 
-        struct Assignment
-		{
 			Var current;
 			vector < Var > tried;
 		};
+
+        struct VertexDegree
+        {
+        	unsigned int degree;
+        	vector< Vertex* > vertices;
+        };
 
         vector< Var > variables;
         vector< Vertex > vertices;
         vector< ColourAssignment > colourAssignments;
 
-        vector< Assignment > assignments;
-        vector < Var > undefined;
+        vector< VertexDegree > order;
 
         void processVariable( Var v );
 
-        bool searchAndAddAssignment( Var variable );
-        bool getTriedAssignments( Vertex* node, vector < Var >* tried );
+        VertexDegree newVertexDegree( ){ VertexDegree vd; return vd; }
+
+        bool getVertexMRV( VertexDegree vd, unsigned int* iv );
+        bool addAssignment( Vertex *vertex, Var variable );
+        bool getTriedAssignments( Vertex* vertex, vector < Var >* tried );
         void quicksort( vector< Vertex > &vertices, unsigned int p, unsigned int q );
         int partition( vector< Vertex > &vertices, unsigned int p, unsigned int q);
 };
