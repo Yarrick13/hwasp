@@ -53,10 +53,18 @@ class ColouringHeuristic : public Heuristic
 			string colour;
 		};
 
+        struct Link
+        {
+        	string vertex1;
+        	string vertex2;
+        };
+
         struct Vertex
 		{
 			string name;
 			unsigned int degree;
+
+			vector< Vertex* > neighbours;
 
 			vector< ColourAssignment > usedIn;
 
@@ -70,6 +78,7 @@ class ColouringHeuristic : public Heuristic
         	vector< Vertex* > vertices;
         };
 
+        vector< Link > links;
         vector< Var > variables;
         vector< Vertex > vertices;
         vector< ColourAssignment > colourAssignments;
@@ -77,10 +86,12 @@ class ColouringHeuristic : public Heuristic
         vector< VertexDegree > order;
 
         void processVariable( Var v );
+        void initEdges( );
 
         VertexDegree newVertexDegree( ){ VertexDegree vd; return vd; }
 
-        bool getVertexMRV( VertexDegree vd, unsigned int* iv );
+        bool getVertexMRV( VertexDegree vd, unsigned int* mrv );
+        bool getVertexLCV( VertexDegree vd, unsigned int mrv, unsigned int* lcv );
         bool addAssignment( Vertex *vertex, Var variable );
         bool getTriedAssignments( Vertex* vertex, vector < Var >* tried );
         void quicksort( vector< Vertex > &vertices, unsigned int p, unsigned int q );
