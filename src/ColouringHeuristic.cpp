@@ -312,20 +312,35 @@ ColouringHeuristic::getVertexLCV(
 	bool found = false;
 
 	Vertex* v = vd.vertices[ mrv ];
-	unsigned int i;
+	unsigned int i, j;
 
 	vector< unsigned int > colourCnt;
 	unsigned int min;
 
+	vector< unsigned int > unchecked;
+	vector< unsigned int > unchecked_init;
+
 	for ( i = 0; i < numberOfColours; i++ )
+	{
 		colourCnt.push_back( 0 );
+		unchecked_init.push_back( i );
+	}
 
 	for ( Vertex* n : v->neighbours )
 	{
+		unchecked = unchecked_init;
 		for ( i = 0; i < numberOfColours; i++ )
 		{
-			if ( solver.getTruthValue( n->usedIn[ i ].variable ) == UNDEFINED )
-				colourCnt[ i ]++;
+			for ( j = 0; j < unchecked.size( ); j++ )
+			{
+				if ( v->usedIn[ i ].colour.compare( n->usedIn[ unchecked[ j ] ].colour ) == 0 &&
+						solver.getTruthValue( n->usedIn[ unchecked[ j ] ].variable ) == UNDEFINED )
+				{
+					colourCnt[ unchecked[ j ] ]++;
+					unchecked.erase( unchecked.begin( ) + j );
+					break;
+				}
+			}
 		}
 	}
 
@@ -411,8 +426,8 @@ ColouringHeuristic::makeAChoiceProtected( )
 			found = getVertexMRV( current, &mrv );
 			if ( found )
 			{
-				trace_msg( heuristic, 3, "Considering vertex " << currentVertex->name );
 				currentVertex = order[ index ].vertices[ mrv ];
+				trace_msg( heuristic, 3, "Considering vertex " << currentVertex->name );
 			}
 			else
 			{

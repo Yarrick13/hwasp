@@ -601,6 +601,7 @@ PUPHeuristic::makeAChoiceProtected( )
 					{
 						allTrue = false;
 						conflictOccured = true;
+						conflictHandled = false;
 					}
 					if ( solver.getTruthValue( assignments[ i ].variable ) == UNDEFINED )
 					{
