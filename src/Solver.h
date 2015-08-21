@@ -391,6 +391,8 @@ class Solver
         
         inline void disableStatistics() { statistics( this, disable() ); }
         inline void enableStatistics() { statistics( this, enable() ); }
+        inline unsigned int getNumberOfRestarts() { return statistics( this, getNumberOfRestarts( ) ); }
+        inline unsigned int getNumberOfChoices() { return statistics( this, getNumberOfChoices( ) ); }
         
         inline unsigned int numberOfHCComponents() const { return hcComponents.size(); }
         

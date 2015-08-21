@@ -21,6 +21,7 @@
 
 #include <cassert>
 #include <vector>
+#include <string>
 #include <unordered_map>
 using namespace std;
 
@@ -63,7 +64,9 @@ class WaspFacade
         
         inline void setQueryAlgorithm( unsigned int value ) { queryAlgorithm = value; }
         
-        inline unsigned int solveWithWeakConstraints();        
+        inline unsigned int solveWithWeakConstraints();
+
+        inline void setCombinedHeuristicOption( string value ) { combined_heuristic_option = value; };
 
     private:
         Solver solver;
@@ -78,6 +81,8 @@ class WaspFacade
         bool stratification;
         
         unsigned int queryAlgorithm;
+
+        string combined_heuristic_option;
 };
 
 WaspFacade::WaspFacade() : numberOfModels( 0 ), maxModels( 1 ), printProgram( false ), printDimacs( false ), weakConstraintsAlg( OPT ), disjCoresPreprocessing( false ), stratification( true )

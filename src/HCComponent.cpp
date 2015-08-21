@@ -7,6 +7,7 @@
 #include "util/Options.h"
 
 #include <vector>
+#include <time.h>
 #include "util/Options.h"
 
 ostream& operator<<( ostream& out, const HCComponent& component )

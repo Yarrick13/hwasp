@@ -319,6 +319,9 @@ class Solver;
                 trueAtLevelZero = nb;
             }      
             
+            inline unsigned int getNumberOfRestarts( ) { return numberOfRestarts; }
+            inline unsigned int getNumberOfChoices( ) { return numberOfChoices; }
+
         private:
             static vector< Statistics* > instances;
             static unordered_map< Solver*, unsigned int > solverToStats;

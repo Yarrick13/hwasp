@@ -29,6 +29,7 @@ class HeuristicUtil
     public:
 		static void getName( string atom, string *name );
 		static void getName( string atom, string *name1, string *name2 );
+		static char tolower( char in );
 };
 
 #endif

@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <cstdlib>
 #include <map>
+#include <string>
 
 namespace wasp
 {
@@ -65,6 +66,7 @@ namespace wasp
 #define OPTIONID_pupheuristic ( 'z' + 34 )
 #define OPTIONID_colouringheuristic ( 'z' + 35 )
 #define OPTIONID_binpackingheuristic ( 'z' + 36 )
+#define OPTIONID_combinedheuristic ( 'z' + 37 )
 
 /* RESTART OPTIONS */
 #define OPTIONID_geometric_restarts ( 'z' + 50 )
@@ -109,6 +111,8 @@ TraceLevels Options::traceLevels;
 DELETION_POLICY Options::deletionPolicy = RESTARTS_BASED_DELETION_POLICY;
 
 DECISION_POLICY Options::decisionPolicy = HEURISTIC_BERKMIN;
+
+string Options::combined_heuristic_option = "";
 
 vector< const char* > Options::inputFiles;
 
@@ -203,6 +207,7 @@ Options::parse(
                 { "heuristic-pup", no_argument, NULL, OPTIONID_pupheuristic },
 				{ "heuristic-colouring", no_argument, NULL, OPTIONID_colouringheuristic },
 				{ "heuristic-binpacking", no_argument, NULL, OPTIONID_binpackingheuristic },
+				{ "heuristic-combined", required_argument, NULL, OPTIONID_combinedheuristic },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -369,6 +374,11 @@ Options::parse(
             	decisionPolicy = HEURISTIC_BINPACKING;
             	break;
 
+            case OPTIONID_combinedheuristic:
+            	decisionPolicy = HEURISTIC_COMBINED;
+            	combined_heuristic_option = optarg;
+            	break;
+
             case OPTIONID_sequence_based_restarts:
                 restartsPolicy = SEQUENCE_BASED_RESTARTS_POLICY;
                 if( optarg )
@@ -526,6 +536,7 @@ void
 Options::setOptions(
     WaspFacade& waspFacade )
 {
+    waspFacade.setCombinedHeuristicOption( combined_heuristic_option );
     waspFacade.setDeletionPolicy( deletionPolicy, deletionThreshold );
     waspFacade.setDecisionPolicy( decisionPolicy, decisionThreshold );
     waspFacade.setOutputPolicy( outputPolicy );

@@ -21,6 +21,7 @@
 
 #include <vector>
 #include <map>
+#include <string>
 #include "Constants.h"
 #include "Trace.h"
 using namespace std;
@@ -60,6 +61,8 @@ namespace wasp
 
             //static DECISION_POLICY decisionPolicy;
             
+            static string combined_heuristic_option;
+
             static vector< const char* > inputFiles;
 
             static unsigned int decisionThreshold;

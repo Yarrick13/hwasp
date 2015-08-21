@@ -32,8 +32,12 @@
 #include "PUPHeuristic.h"
 #include "ColouringHeuristic.h"
 #include "BinPackingHeuristic.h"
+#include "CombinedHeuristic.h"
 #include "outputBuilders/MultiOutputBuilder.h"
 #include "QueryInterface.h"
+
+#include <vector>
+#include <string>
 
 void
 WaspFacade::readInput()
@@ -203,6 +207,32 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_BINPACKING:
         	solver.setHeuristic( new BinPackingHeuristic( solver ) );
+        	break;
+
+        case HEURISTIC_COMBINED:
+        	{
+				CombinedHeuristic* combined = new CombinedHeuristic( solver );
+
+				vector< string > heuristics;
+				string h;
+
+				for( char& c : combined_heuristic_option )
+				{
+					if ( c == ';' )
+					{
+						heuristics.push_back( h );
+						h = "";
+					}
+					else
+						h += c;
+				}
+				heuristics.push_back( h );
+
+				for ( string h : heuristics )
+					assert ( combined->addHeuristic( h ) && "heuristic not found!" );
+
+				solver.setHeuristic( combined );
+        	}
         	break;
         
         case HEURISTIC_MINISAT:

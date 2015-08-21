@@ -62,3 +62,12 @@ HeuristicUtil::getName(
 	*name1 = atom.substr( start + 1, middle - start - 1 );
 	*name2 = atom.substr( middle + 1, end - middle - 1 );
 }
+
+char
+HeuristicUtil::tolower(
+	char in )
+{
+	if(in<='Z' && in>='A')
+		return in-('Z'-'z');
+	return in;
+}
