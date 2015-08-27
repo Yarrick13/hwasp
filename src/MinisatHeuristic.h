@@ -51,6 +51,7 @@ class MinisatHeuristic : public Heuristic
         inline void incrementHeuristicValues( Var v ) { variableBumpActivity( v ); }
         void simplifyVariablesAtLevelZero();
         inline void conflictOccurred() { variableDecayActivity(); } 
+        unsigned int getTreshold( ){ return 0; };
         
     protected:
         virtual Literal makeAChoiceProtected();

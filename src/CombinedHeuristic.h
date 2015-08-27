@@ -36,6 +36,7 @@ class CombinedHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero( );
         void conflictOccurred( );
         void onFinishedParsing( );
+        unsigned int getTreshold( );
 
         void addHeuristic( Heuristic* h );
         bool addHeuristic( string h );
@@ -44,9 +45,12 @@ class CombinedHeuristic : public Heuristic
         Literal makeAChoiceProtected( );
 
     private:
+        unsigned int index;
+
         Heuristic* minisat;
         vector< Heuristic* > heuristics;
 
+        double getTresholdStatistics( );
 };
 
 #endif

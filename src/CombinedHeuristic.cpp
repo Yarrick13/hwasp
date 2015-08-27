@@ -24,7 +24,7 @@
 #include "util/HeuristicUtil.h"
 
 CombinedHeuristic::CombinedHeuristic(
-    Solver& s ) : Heuristic( s )
+    Solver& s ) : Heuristic( s ), index( 0 )
 {
 	minisat = new MinisatHeuristic( s );
 }
@@ -61,10 +61,10 @@ void
 CombinedHeuristic::onLiteralInvolvedInConflict(
 	Literal l )
 {
-	minisat->onLiteralInvolvedInConflict( l );
+	if ( index < heuristics.size( ) )
+		heuristics[ index ]->onLiteralInvolvedInConflict( l );
 
-	for ( Heuristic* h : heuristics )
-		h->onLiteralInvolvedInConflict( l );
+	minisat->onLiteralInvolvedInConflict( l );
 }
 
 void
@@ -81,10 +81,10 @@ void
 CombinedHeuristic::incrementHeuristicValues(
 	Var v )
 {
-	minisat->incrementHeuristicValues( v );
+	if ( index < heuristics.size( ) )
+		heuristics[ index ]->incrementHeuristicValues( v );
 
-	for ( Heuristic* h : heuristics )
-		h->incrementHeuristicValues( v );
+	minisat->incrementHeuristicValues( v );
 }
 
 void
@@ -101,20 +101,31 @@ void
 CombinedHeuristic::conflictOccurred(
 	)
 {
-	minisat->conflictOccurred( );
+	if ( index < heuristics.size( ) )
+		heuristics[ index ]->conflictOccurred( );
 
-	for ( Heuristic* h : heuristics )
-		h->conflictOccurred( );
+	minisat->conflictOccurred( );
 }
 
 Literal
 CombinedHeuristic::makeAChoiceProtected(
 	)
 {
-	cout << "number of restarts: " << solver.getNumberOfRestarts( ) << endl;
-	cout << "number of choices: " << solver.getNumberOfChoices( ) << endl;
-	assert( 0 && "IMPLEMENT ME!" );
-	return Literal::null;
+	Literal lit = Literal::null;
+
+	if ( index < heuristics.size( ) && getTresholdStatistics( ) >= 100 )
+		index++;
+
+	while ( lit == Literal::null && index < heuristics.size( ) )
+	{
+		lit = heuristics[ index ]->makeAChoice( );
+		if ( lit == Literal::null )
+			index++;
+		else
+			return lit;
+	}
+
+	return minisat->makeAChoice( );
 }
 
 void
@@ -150,5 +161,25 @@ CombinedHeuristic::addHeuristic(
 		return false;
 
 	return true;
+}
 
+unsigned int
+CombinedHeuristic::getTreshold(
+	)
+{
+	if ( index < heuristics.size( ) )
+		return heuristics[ index ]->getTreshold( );
+	else
+		return minisat->getTreshold( );
+};
+
+double
+CombinedHeuristic::getTresholdStatistics(
+	)
+{
+#ifdef STATS_ON
+	return (double) solver.getNumberOfRestarts( ) / solver.getNumberOfChoices( );
+#else
+	return getTreshold( );
+#endif
 }

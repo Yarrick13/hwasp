@@ -34,6 +34,7 @@ class BinPackingHeuristic : public Heuristic
         void incrementHeuristicValues( Var ){ };
         void simplifyVariablesAtLevelZero(){ };
         void conflictOccurred(){ conflictOccured = true; }
+        unsigned int getTreshold( ){ return numberOfConflicts; }
 
     protected:
         Literal makeAChoiceProtected();
@@ -42,6 +43,7 @@ class BinPackingHeuristic : public Heuristic
         unsigned int index;				// current index for the heuristic (items)
         unsigned int numberOfBins;
         unsigned int maxBinSize;
+        unsigned int numberOfConflicts;
         bool isConsistent;
         bool conflictOccured;			// true after conflict, otherwise false
 

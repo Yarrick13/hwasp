@@ -391,9 +391,12 @@ class Solver
         
         inline void disableStatistics() { statistics( this, disable() ); }
         inline void enableStatistics() { statistics( this, enable() ); }
+        
+#ifdef STATS_ON
         inline unsigned int getNumberOfRestarts() { return statistics( this, getNumberOfRestarts( ) ); }
         inline unsigned int getNumberOfChoices() { return statistics( this, getNumberOfChoices( ) ); }
-        
+#endif
+
         inline unsigned int numberOfHCComponents() const { return hcComponents.size(); }
         
         inline void printInterpretation() const { variables.printInterpretation(); }
@@ -2269,7 +2272,8 @@ Solver::restartIfNecessary()
     bool hasToRestart = glucoseHeuristic_ ? ( glucoseData.lbdQueue.isValid() && ( ( glucoseData.lbdQueue.getAvg() * glucoseData.K ) > ( glucoseData.sumLBD / conflictsRestarts ) ) ) : restart->hasToRestart();
     if( hasToRestart )
     {
-        statistics( this, onRestart() );    
+    	heuristic->conflictOccurred( );
+    	statistics( this, onRestart() );
         glucoseData.lbdQueue.fastClear();
         if( !doRestart() )
             return false;

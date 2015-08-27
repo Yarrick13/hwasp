@@ -35,6 +35,7 @@ class ColouringHeuristic : public Heuristic
         void incrementHeuristicValues( Var ){ }
         void simplifyVariablesAtLevelZero( ){ }
         void conflictOccurred(){ conflictOccured = true; }
+        unsigned int getTreshold( ){ return numberOfConflicts; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -42,6 +43,7 @@ class ColouringHeuristic : public Heuristic
     private:
         unsigned int index;
         unsigned int numberOfColours;
+        unsigned int numberOfConflicts;
         bool conflictOccured;
 
         unsigned int choice;

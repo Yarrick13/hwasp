@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
-    Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), isConsitent( true ), conflictOccured( false ),
+    Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), isConsitent( true ), conflictOccured( false ),
 	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false )
 { }
 
@@ -656,6 +656,7 @@ PUPHeuristic::makeAChoiceProtected( )
 				conflictOccured = false;
 				assignedSinceConflict = 0;
 				redoAfterConflict = true;
+				numberOfConflicts++;
 			}
 
 			// redo all UNDEFINED up to the current assignemnt

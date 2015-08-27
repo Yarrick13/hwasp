@@ -58,6 +58,7 @@ class PUPHeuristic : public Heuristic
         void incrementHeuristicValues( Var ) { };
         void simplifyVariablesAtLevelZero() { };
         void conflictOccurred( );
+        unsigned int getTreshold( ){ return numberOfConflicts; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -65,8 +66,9 @@ class PUPHeuristic : public Heuristic
     private:
 		unsigned int startAt;					// current starting node
 		unsigned int index;						// current order index ( next node to be considered )
-		unsigned int maxPu;						// maximum number of partner units per unit ( fixed to 2 )
-		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit ( fixed to 2 )
+		unsigned int maxPu;						// maximum number of partner units per unit
+		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit
+		unsigned int numberOfConflicts;
 		bool isConsitent;
 		bool conflictOccured;
 		bool conflictHandled;

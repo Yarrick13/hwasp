@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 BinPackingHeuristic::BinPackingHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), isConsistent( true ), conflictOccured( false )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), numberOfConflicts( 0 ), isConsistent( true ), conflictOccured( false )
 {
 }
 
@@ -297,6 +297,7 @@ BinPackingHeuristic::makeAChoiceProtected(
 		}
 
 		conflictOccured = false;
+		numberOfConflicts++;
 	}
 
 	do

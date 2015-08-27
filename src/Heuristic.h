@@ -41,6 +41,7 @@ class Heuristic
         virtual void incrementHeuristicValues( Var var ) = 0;
         virtual void simplifyVariablesAtLevelZero() = 0;
         virtual void conflictOccurred() = 0;
+        virtual unsigned int getTreshold( ) = 0;
         inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
         inline void removePrefChoices() { preferredChoices.clear(); }
 

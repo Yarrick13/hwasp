@@ -31,7 +31,7 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), conflictOccured( false ), choice( 0 )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), numberOfConflicts( 0 ), conflictOccured( false ), choice( 0 )
 {
 }
 
@@ -195,8 +195,8 @@ ColouringHeuristic::onFinishedParsing (
 
 	// for lcv
 	//-------
-	trace_msg( heuristic, 2, "Initialize edges" );
-	initEdges( );
+//	trace_msg( heuristic, 2, "Initialize edges" );
+//	initEdges( );
 	//-------
 
 	trace_msg( heuristic, 2, "Creating order" );
@@ -414,6 +414,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 			}
 
 			conflictOccured = false;
+			numberOfConflicts++;
 		}
 
 		found = false;
@@ -442,39 +443,39 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 		// for lcv
 		//-------
-		if ( getVertexLCV( current, mrv, &choice ) )
-		{
-			chosenVariable = currentVertex->usedIn[ choice ].variable;
-			addAssignment( currentVertex, chosenVariable );
-		}
-		//-------
-
-		// without lcv
-		//-------
-//		vector < Var > tried;
-//
-//		choice = (choice + 1) % numberOfColours;
-//		if ( !getTriedAssignments( currentVertex, &tried ) )
+//		if ( getVertexLCV( current, mrv, &choice ) )
 //		{
 //			chosenVariable = currentVertex->usedIn[ choice ].variable;
 //			addAssignment( currentVertex, chosenVariable );
 //		}
-//
-//		if ( chosenVariable == 0 )
-//		{
-//			for ( unsigned int i = 0; i < numberOfColours && !found; i++ )
-//			{
-//				unsigned int pos = ( i + choice ) % numberOfColours;
-//
-//				if ( ( std::find( tried.begin(), tried.end(), currentVertex->usedIn[ pos ].variable ) == tried.end() ) )
-//				{
-//					chosenVariable = currentVertex->usedIn[ pos ].variable;
-//					addAssignment( currentVertex, chosenVariable );
-//
-//					found = true;
-//				}
-//			}
-//		}
+		//-------
+
+		// without lcv
+		//-------
+		vector < Var > tried;
+
+		choice = (choice + 1) % numberOfColours;
+		if ( !getTriedAssignments( currentVertex, &tried ) )
+		{
+			chosenVariable = currentVertex->usedIn[ choice ].variable;
+			addAssignment( currentVertex, chosenVariable );
+		}
+
+		if ( chosenVariable == 0 )
+		{
+			for ( unsigned int i = 0; i < numberOfColours && !found; i++ )
+			{
+				unsigned int pos = ( i + choice ) % numberOfColours;
+
+				if ( ( std::find( tried.begin(), tried.end(), currentVertex->usedIn[ pos ].variable ) == tried.end() ) )
+				{
+					chosenVariable = currentVertex->usedIn[ pos ].variable;
+					addAssignment( currentVertex, chosenVariable );
+
+					found = true;
+				}
+			}
+		}
 		//-------
 
 		if ( chosenVariable == 0 )

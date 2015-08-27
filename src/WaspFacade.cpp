@@ -212,6 +212,7 @@ WaspFacade::setDecisionPolicy(
         case HEURISTIC_COMBINED:
         	{
 				CombinedHeuristic* combined = new CombinedHeuristic( solver );
+				bool found = true;
 
 				vector< string > heuristics;
 				string h;
@@ -229,9 +230,24 @@ WaspFacade::setDecisionPolicy(
 				heuristics.push_back( h );
 
 				for ( string h : heuristics )
-					assert ( combined->addHeuristic( h ) && "heuristic not found!" );
+				{
+					if ( !combined->addHeuristic( h ) )
+					{
+						found = false;
+						cout << "Can not find heuristic " << h << endl;
+					}
+				}
 
-				solver.setHeuristic( combined );
+				if ( found && heuristics.size( ) > 0 )
+					solver.setHeuristic( combined );
+				else
+				{
+					cout << "Can not use combined heuristic - using Minisat";
+					decisionPolicy = HEURISTIC_MINISAT;
+					solver.setHeuristic( new MinisatHeuristic( solver ) );
+				}
+
+				solver.setMinisatHeuristic( );
         	}
         	break;
         
