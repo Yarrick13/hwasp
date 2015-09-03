@@ -42,15 +42,18 @@ class Heuristic
         virtual void simplifyVariablesAtLevelZero() = 0;
         virtual void conflictOccurred() = 0;
         virtual unsigned int getTreshold( ) = 0;
+        virtual void onFinishedSolving() = 0;
         inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
         inline void removePrefChoices() { preferredChoices.clear(); }
 
     protected:
         virtual Literal makeAChoiceProtected() = 0;
+        void addClause( vector< Literal > literals );
+
         Solver& solver;
 
     private:
-        vector< Literal > preferredChoices;    
+        vector< Literal > preferredChoices;
 };
 
 #endif

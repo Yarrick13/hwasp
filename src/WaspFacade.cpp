@@ -106,6 +106,7 @@ WaspFacade::solve()
             while( solver.solve() == COHERENT )
             {
                 solver.printAnswerSet();
+//                solver.onFinishedSolving( );
                 trace_msg( enumeration, 1, "Model number: " << numberOfModels + 1 );
                 if( ++numberOfModels >= maxModels )
                 {

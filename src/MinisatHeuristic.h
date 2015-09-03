@@ -52,6 +52,7 @@ class MinisatHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero();
         inline void conflictOccurred() { variableDecayActivity(); } 
         unsigned int getTreshold( ){ return 0; };
+        void onFinishedSolving( ) { };
         
     protected:
         virtual Literal makeAChoiceProtected();

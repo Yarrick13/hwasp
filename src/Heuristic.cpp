@@ -30,3 +30,19 @@ Heuristic::makeAChoice()
     }
     return makeAChoiceProtected();
 }
+
+void
+Heuristic::addClause(
+	vector< Literal > literals
+)
+{
+	if ( solver.getCurrentDecisionLevel( ) != 0 )
+		solver.unrollToZero( );
+
+	Clause* clause = new Clause( literals.size( ) );
+
+	for ( Literal l : literals )
+		clause->addLiteral( l );
+
+	solver.addClauseRuntime( clause );
+}

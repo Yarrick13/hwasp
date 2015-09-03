@@ -36,6 +36,7 @@ class ColouringHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero( ){ }
         void conflictOccurred(){ conflictOccured = true; }
         unsigned int getTreshold( ){ return numberOfConflicts; };
+        void onFinishedSolving( ) { };
 
     protected:
         Literal makeAChoiceProtected();

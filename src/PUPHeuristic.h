@@ -59,6 +59,7 @@ class PUPHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero() { };
         void conflictOccurred( );
         unsigned int getTreshold( ){ return numberOfConflicts; };
+        void onFinishedSolving( );
 
     protected:
         Literal makeAChoiceProtected();
@@ -75,12 +76,15 @@ class PUPHeuristic : public Heuristic
 		unsigned int assignedSinceConflict;
 		bool redoAfterConflict;
 
+		bool test;
+
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
 		{
 			string pu;
 			string to;
 			Var positive;
+			unsigned int type;
 		};
 
 		// represents either a zone or a sensor
@@ -102,9 +106,15 @@ class PUPHeuristic : public Heuristic
 			Var var;
 
 			vector < ZoneAssignment* > usedIn;
+
+			vector < Pu* > connectedTo;
+			unsigned int numberOfZones;
+			unsigned int numberOfSensors;
+			unsigned int numberOfPartners;
+			bool removed;
 		};
 
-		// represents a zone to sensor connection ( positive or negative variable )
+		// represents a zone to sensor connection
 		struct Connection
 		{
 			string from;
@@ -120,6 +130,13 @@ class PUPHeuristic : public Heuristic
 			vector < Var > triedUnits;
 		};
 
+		struct PartnerUnitConnection
+		{
+			Var variable;
+			string unit1;
+			string unit2;
+		};
+
 		vector < Var > variables;
         vector < Node > zones;
 		vector < Node > sensors;
@@ -127,6 +144,7 @@ class PUPHeuristic : public Heuristic
 		vector < Connection > zone2sensor;		// input relation for creating zone assignments
 		vector < ZoneAssignment > unit2zone;
 		vector < ZoneAssignment > unit2sensor;
+		vector < PartnerUnitConnection > partnerUnitConnections;
 
 		vector < Node* > order;					// current node order
 		vector < Assignment > assignments;		// current assignments done by the heuristic
@@ -146,6 +164,7 @@ class PUPHeuristic : public Heuristic
 		bool isPartnerUsed( Pu pu );
 		bool getUntriedPu( Pu* pu, vector < Var > tried );
 		bool getPu( Var assignment, Pu *pu );
+		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
 };
 
 #endif

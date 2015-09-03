@@ -108,6 +108,7 @@ class Solver
         inline void addVariable();
         inline void addVariableRuntime();
         inline void onFinishedParsing ( ) { heuristic->onFinishedParsing( ); }
+        inline void onFinishedSolving ( ) { heuristic->onFinishedSolving( ); }
         
         inline bool cleanAndAddClause( Clause* clause );
         inline bool addClause( Literal literal );

@@ -31,7 +31,7 @@
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), isConsitent( true ), conflictOccured( false ),
-	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false )
+	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), test( false )
 { }
 
 /*
@@ -101,6 +101,11 @@ PUPHeuristic::processVariable (
 		pu.name = tmp;
 		pu.var = v;
 
+		pu.numberOfPartners = 0;
+		pu.numberOfZones = 0;
+		pu.numberOfSensors = 0;
+		pu.removed = false;
+
 		partnerUnits.push_back( pu );
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( partnerunit )" );
@@ -113,6 +118,7 @@ PUPHeuristic::processVariable (
 		za.pu = tmp;
 		za.to = tmp2;
 		za.positive = v;
+		za.type = ZONE;
 
 		initUnitAssignments( za, U2Z );
 
@@ -126,6 +132,7 @@ PUPHeuristic::processVariable (
 		za.pu = tmp;
 		za.to = tmp2;
 		za.positive = v;
+		za.type = SENSOR;
 
 		initUnitAssignments( za, U2S );
 
@@ -146,6 +153,17 @@ PUPHeuristic::processVariable (
 		maxPu = strtoul( tmp.c_str(), NULL, 0 );
 
 		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( maxPu )" << " with max. " << maxPu << " partners on a PU" );
+	}
+	else if( name.compare( 0, 13, "partnerunits(" ) == 0 )
+	{
+		HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+		PartnerUnitConnection puc;
+		puc.variable = v;
+		puc.unit1 = tmp;
+		puc.unit2 = tmp2;
+
+		partnerUnitConnections.push_back( puc );
 	}
 }
 
@@ -565,6 +583,22 @@ PUPHeuristic::makeAChoiceProtected( )
 	Assignment a;
 	bool found;
 
+
+//	if ( !test )
+//	{
+//		cout << order[ 0 ]->name << endl;
+//		vector< Literal > l;
+//
+//		for ( unsigned int i = 0; i < 3; i++ )
+//		{
+//			l.clear( );
+//			l.push_back( Literal( order[ 0 ]->usedIn[ i ]->positive, NEGATIVE ) );
+//			addClause( l );
+//		}
+//
+//		test = true;
+//	}
+
 	do
 	{
 		if ( !isConsitent )
@@ -579,6 +613,8 @@ PUPHeuristic::makeAChoiceProtected( )
 			// solution should already be found at this point - check assignments
 			if ( index >= order.size( ) )
 			{
+				cout << "index!" << endl;
+
 				// all assignments are TRUE but something is UNDEFINED - set all UNDEFINED to FALSE
 				if ( undefined.size( ) > 0 )
 				{
@@ -800,4 +836,145 @@ PUPHeuristic::conflictOccurred(
 {
 	conflictOccured = true;
 	conflictHandled = false;
+}
+
+void
+PUPHeuristic::onFinishedSolving(
+	)
+{
+	vector < Var > trueInAS;
+	vector < Var > falseInAS;
+	vector < Pu* > removed;
+
+	trace_msg( heuristic, 1, "Minimize solution" );
+
+	cout << endl << endl << "after minimize " << endl;
+	minimize( &trueInAS, &falseInAS, &removed );
+
+	cout << "set to true" << endl;
+	for ( Var v : trueInAS )
+		cout <<"\t" << VariableNames::getName( v ) << endl;
+
+	cout << "set to false" << endl;
+	for ( Var v : falseInAS )
+		cout <<"\t" << VariableNames::getName( v ) << endl;
+
+	cout << "removed pu" << endl;
+	for ( Pu* pu : removed )
+		cout <<"\t" << pu->name << endl;
+}
+
+void
+PUPHeuristic::minimize(
+	vector< Var >* trueInAS,
+	vector< Var>* falseInAS,
+	vector< Pu* >* removed)
+{
+	unsigned int found = 0;
+	unsigned int nZones;
+	unsigned int nSensors;
+	unsigned int nPartners;
+
+	trace_msg( heuristic, 2, "Analyse partner unit connection" );
+	for ( PartnerUnitConnection puc : partnerUnitConnections )
+	{
+		found = 0;
+
+		if ( solver.getTruthValue( puc.variable ) == TRUE )
+		{
+			Pu* unit1 = 0;
+			Pu* unit2 = 0;
+			for ( unsigned int i = 0; i < partnerUnits.size( ) && !found < 2; i++ )
+			{
+				if ( puc.unit1 == partnerUnits[ i ].name && unit1 == 0 )
+				{
+					unit1 = &partnerUnits[ i ];
+					found++;
+				}
+				else if ( puc.unit2 == partnerUnits[ i ].name && unit2 == 0 )
+				{
+					unit2 = &partnerUnits[ i ];
+					found++;
+				}
+			}
+
+			if ( std::find( unit1->connectedTo.begin( ), unit1->connectedTo.end( ), unit2 ) == unit1->connectedTo.end( ) )
+				unit1->connectedTo.push_back( unit2 );
+			if ( std::find( unit2->connectedTo.begin( ), unit2->connectedTo.end( ), unit1 ) == unit2->connectedTo.end( ) )
+				unit2->connectedTo.push_back( unit1 );
+		}
+	}
+
+	trace_msg( heuristic, 2, "Count connected zones/sensors/partners" );
+	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
+	{
+		for ( ZoneAssignment* za : partnerUnits[ i ].usedIn )
+		{
+			if ( solver.getTruthValue( za->positive ) == TRUE )
+			{
+				if ( za->type == ZONE )
+					partnerUnits[ i ].numberOfZones++;
+				else
+					partnerUnits[ i ].numberOfSensors++;
+			}
+		}
+
+		partnerUnits[ i ].numberOfPartners = partnerUnits[ i ].connectedTo.size( );
+	}
+
+	trace_msg( heuristic, 2, "Start minimizing" );
+	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
+	{
+		// add nodes/sensors from unit i to minimized ones (they can not be removed
+		if ( partnerUnits[ i ].removed == false )
+		{
+			for ( ZoneAssignment* za : partnerUnits[ i ].usedIn )
+			{
+				if ( solver.getTruthValue( za->positive ) == TRUE )
+					trueInAS->push_back( za->positive );
+			}
+		}
+
+		// check following partner units (remove if neccesary)
+		for ( unsigned int j = i + 1; j < partnerUnits.size( ); j++ )
+		{
+			nPartners = partnerUnits[ i ].numberOfPartners + partnerUnits[ j ].numberOfPartners;
+			if ( std::find( partnerUnits[ i ].connectedTo.begin( ), partnerUnits[ i ].connectedTo.end( ), &partnerUnits[ j ] ) != partnerUnits[ i ].connectedTo.end( ) )
+				nPartners-=2;
+			nZones = partnerUnits[ i ].numberOfZones + partnerUnits[ j ].numberOfZones;
+			nSensors = partnerUnits[ i ].numberOfSensors + partnerUnits[ j ].numberOfSensors;
+
+			if ( nZones <= maxElementsOnPu &&
+				 nSensors <= maxElementsOnPu &&
+				 nPartners <= maxPu &&
+				 partnerUnits[ i ].removed == false &&
+				 partnerUnits[ j ].removed == false )
+			{
+				trace_msg( heuristic, 3, "Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" );
+
+				partnerUnits[ i ].numberOfZones = nZones;
+				partnerUnits[ i ].numberOfSensors = nSensors;
+				partnerUnits[ i ].numberOfPartners = nPartners;
+				partnerUnits[ j ].removed = true;
+
+				removed->push_back( &partnerUnits[ j ] );
+
+				for ( ZoneAssignment* za1 : partnerUnits[ i ].usedIn )
+				{
+					for ( ZoneAssignment* za2 : partnerUnits[ j ].usedIn )
+					{
+						// add nodes/sensors from unit2 to unit1 (and minimized ones)
+						if ( solver.getTruthValue( za2->positive ) == TRUE && za1->to == za2->to )
+						{
+							trace_msg( heuristic, 4, "Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ i ].name << " to unit " << partnerUnits[ j ].name );
+
+							trueInAS->push_back( za1->positive );
+							falseInAS->push_back( za2->positive );
+						}
+					}
+				}
+			}
+		}
+	}
+
 }

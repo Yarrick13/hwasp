@@ -37,6 +37,7 @@ class CombinedHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( );
+        void onFinishedSolving( ) { };
 
         void addHeuristic( Heuristic* h );
         bool addHeuristic( string h );
