@@ -66,7 +66,8 @@ class Help
             cout << "--printdimacs                          - Print the input program in the dimacs format and exit" << endl;
             cout << "--silent                               - Print models with no spaces and lines" << endl;
             cout << "--third-competition-output             - Print models according to the third competition output" << endl;
-            cout << "--competition-output                   - Print models according to the fourth competition output" << endl;            
+            cout << "--competition-output                   - Print models according to the fourth competition output" << endl;   
+            cout << "--printlatestmodel                     - Print the latest computed model" << endl;   
             cout << separator << endl;
             
             cout << "Heuristics options                     " << endl << endl;
@@ -95,6 +96,7 @@ class Help
             cout << "--enable-disjcores                     - Enable disjoint cores preprocessing (only for core-guided)" << endl;
             cout << "--minimize-unsatcore                   - Enable minimization of unsat cores (only for core-guided)" << endl;
             cout << "--disable-stratification               - Disable stratification (only for core-guided)" << endl;
+            cout << "--compute-firstmodel=budget            - Compute a model before starting the algorithm. In addition, budget may specify the maximum number of seconds allowed." << endl;
 
             cout << separator << endl;
             cout << "Query options                          " << endl << endl;

@@ -22,7 +22,7 @@ extern int EXIT_CODE;
 void
 OutputBuilder::foundModelOptimization(
     const Vector< uint64_t >& costs )
-{
+{     
     cout << COST;
     for( int i = costs.size() - 1; i >= 0; --i )
         cout << " " << costs[ i ] << WEIGHT_LEVEL_WEAKCONSTRAINT_SEPARATOR << ( i + 1 );
@@ -44,5 +44,10 @@ OutputBuilder::foundLowerBound(
 
 void
 OutputBuilder::onFinish()
+{
+}
+
+void
+OutputBuilder::onKill()
 {
 }

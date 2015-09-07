@@ -86,6 +86,7 @@ class Solver
         
         inline void greetings(){ outputBuilder->greetings(); }
         inline void onFinish() { outputBuilder->onFinish(); }
+        inline void onKill();
         
         inline unsigned int solve();
         inline unsigned int solve( vector< Literal >& assumptions );
@@ -434,6 +435,7 @@ class Solver
         
         inline void setMaxNumberOfChoices( unsigned int max ) { maxNumberOfChoices = max; }
         inline void setMaxNumberOfRestarts( unsigned int max ) { maxNumberOfRestarts = max; }
+        inline void setMaxNumberOfSeconds( unsigned int max ) { maxNumberOfSeconds = max; }
         inline uint64_t getPrecomputedCost( unsigned int level ) const { assert( level < precomputedCosts.size() ); return precomputedCosts[ level ]; }
 //        inline uint64_t getPrecomputedCost() const { return precomputedCost; }                
         
@@ -625,6 +627,7 @@ class Solver
         unsigned int numberOfChoices;
         unsigned int maxNumberOfRestarts;
         unsigned int numberOfRestarts;
+        unsigned int maxNumberOfSeconds;
         
         bool incremental_;
         
@@ -676,6 +679,7 @@ Solver::Solver()
     numberOfChoices( 0 ),
     maxNumberOfRestarts( UINT_MAX ),
     numberOfRestarts( 0 ),
+    maxNumberOfSeconds( UINT_MAX ),
     incremental_( false )
 {
     dependencyGraph = new DependencyGraph( *this );
@@ -687,6 +691,13 @@ Solver::Solver()
     variableDataStructures.push_back( NULL );
     variableDataStructures.push_back( NULL );
     fromLevelToPropagators.push_back( 0 );
+}
+
+void
+Solver::onKill()
+{
+    if( outputBuilder )
+        outputBuilder->onKill();    
 }
 
 unsigned int
@@ -2421,13 +2432,16 @@ Solver::minimizeUnsatCore(
     for( unsigned int i = 0; i < unsatCore->size(); i++ )
     {
         Literal lit = unsatCore->getAt( i );        
-        Literal toAdd;
-        if( getDataStructure( lit ).isOptLit() )            
-            toAdd = lit.getOppositeLiteral();
-        else if( getDataStructure( lit.getOppositeLiteral() ).isOptLit() )
-            toAdd = lit;
-        else
+        if( !getDataStructure( lit ).isOptLit() /*&& !getDataStructure( lit.getOppositeLiteral() ).isOptLit()*/ )
             continue;
+                
+        Literal toAdd = lit.getOppositeLiteral();
+//        if( getDataStructure( lit ).isOptLit() )            
+//            toAdd = lit.getOppositeLiteral();
+//        else if( getDataStructure( lit.getOppositeLiteral() ).isOptLit() )
+//            toAdd = lit;
+//        else
+//            continue;
         assumptions.push_back( toAdd );
         setAssumption( toAdd, true );
     }

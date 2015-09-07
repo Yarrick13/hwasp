@@ -93,6 +93,7 @@ GringoNumericFormat::parse(
     readTrueAtoms( input );
     readFalseAtoms( input );
     readErrorNumber( input );
+    propagate();
 
 //    trace_msg( parser, 1, "Apply bimander to at-most-one constraints" );
 //    for( unsigned i = 0; i < delayedAggregateRewriting.size(); ++i )
@@ -381,18 +382,23 @@ GringoNumericFormat::readOptimizationRule(
     
     unsigned int counter = 0;
     WeightConstraintRule* weightConstraintRule = new WeightConstraintRule( 0, UINT64_MAX );
+    
+    Vector< int64_t > tmps;
+    Vector< uint64_t > weights;
     while( counter < negativeSize )
     {
         input.read( tmp );
         createStructures( tmp );
-        weightConstraintRule->addNegativeLiteral( tmp );
+//        weightConstraintRule->addNegativeLiteral( tmp );
         ++counter;
+        tmps.push_back( -tmp );
     }
     while( counter < size )
     {
         input.read( tmp );
         createStructures( tmp );
-        weightConstraintRule->addPositiveLiteral( tmp );
+//        weightConstraintRule->addPositiveLiteral( tmp );
+        tmps.push_back( tmp );
         ++counter;
     }
 
@@ -401,16 +407,44 @@ GringoNumericFormat::readOptimizationRule(
     while( counter < negativeSize )
     {        
         input.read( weight );
-        weightConstraintRule->addNegativeLiteralWeight( weight );
+//        weightConstraintRule->addNegativeLiteralWeight( weight );
+        weights.push_back( weight );
         bound += weight;
         ++counter;
     }
     while( counter < size )
     {
         input.read( weight );
-        weightConstraintRule->addPositiveLiteralWeight( weight );
+//        weightConstraintRule->addPositiveLiteralWeight( weight );
+        weights.push_back( weight );
         bound += weight;
         ++counter;
+    }
+    
+    assert( tmps.size() == weights.size() );
+    for( unsigned int i = 0; i < tmps.size(); i++ )
+    {
+        int64_t id = tmps[ i ];
+        assert( id != 0 );
+        uint64_t weight = weights[ i ];
+        if( weight > 0 )
+        {
+            if( id < 0 )
+            {
+                weightConstraintRule->addNegativeLiteral( -id );
+                weightConstraintRule->addNegativeLiteralWeight( weight );
+            }
+            else
+            {
+                weightConstraintRule->addPositiveLiteral( id );
+                weightConstraintRule->addPositiveLiteralWeight( weight );
+            }
+        }
+//        else
+//        {
+//            //Quick fix
+//            wasp::Options::stratification = false;
+//        }
     }
         
     assert( weightConstraintRule->sameSizeOfInternalVectors() );
@@ -628,6 +662,16 @@ GringoNumericFormat::readCount(
         ErrorMessage::errorDuringParsing( "Size must be greater than or equal to negative size." );
     }
     
+    if( size < bound )
+    {
+        while( size-- > 0 )
+        {
+            input.read( tmp );
+            createStructures( tmp );
+        }
+        solver.addClause( Literal( id, NEGATIVE ) );
+        return;
+    }
     assert( size >= bound );
 
     WeightConstraintRule* weightConstraintRule = new WeightConstraintRule( id, bound );    
@@ -1112,17 +1156,36 @@ void
 GringoNumericFormat::readErrorNumber(
     Istream& input )
 {
+    char b;
     unsigned int errorNumber;
-    input.read( errorNumber );;
+    input.read( b );
+    if( b == 'E' )
+    {
+        unsigned int nextAtom;
+        input.read( nextAtom );
+
+        createStructures( nextAtom );
+
+        while( nextAtom != 0 )
+        {
+            NormalRule* r = new NormalRule();
+            r->literals.push_back( Literal::newPossiblySupportedHeadAtom( nextAtom ) );            
+            r->literals.push_back( Literal::newDoubleNegatedBodyLiteral( nextAtom ) );
+            add( r, 0 );
+            input.read( nextAtom );
+        }
+        input.read( errorNumber );
+    }
+    else
+    {
+        errorNumber = b - '0';
+    }    
 
     if( errorNumber != 1 ) {
         stringstream ss;
         ss << "read error message number " << errorNumber;
         ErrorMessage::errorDuringParsing( ss.str() );
         exit( 0 );
-    }
-    else
-    {
     }
 }
 

@@ -30,13 +30,13 @@ using namespace std;
 class WeakInterface
 {
     public:
-        WeakInterface( Solver& s ) : solver( s ), numberOfCalls( 0 ), disjCoresPreprocessing( false ), stratification( true ), weight( UINT64_MAX ) {}
+        WeakInterface( Solver& s ) : solver( s ), numberOfCalls( 0 ), disjCoresPreprocessing( false ), mixedApproach( false ), weight( UINT64_MAX ) {}
         virtual ~WeakInterface() {}
         unsigned int solve();        
         
         inline void setDisjCoresPreprocessing( bool value ) { disjCoresPreprocessing = value; }
-        inline void setLowerBound( unsigned int value ) { lb_ = value; }
-        inline void setStratification( bool value ) { stratification = value; }
+        inline void setLowerBound( unsigned int value ) { lb_ = value; }        
+        inline void setMixedApproach() { mixedApproach = true; }
         
     protected:
         virtual unsigned int run() = 0;
@@ -68,12 +68,13 @@ class WeakInterface
         vector< Literal > assumptions;                
         
         bool disjCoresPreprocessing;
-        bool stratification;
         
         inline static void incrementLb( uint64_t value ) { lb_ += value; }
         inline static uint64_t lb() { return lb_; }
         inline static uint64_t ub() { return ub_; }
         inline static unsigned int level() { return level_; }
+        
+        bool mixedApproach;
 
     private:
         vector< uint64_t > weights;        

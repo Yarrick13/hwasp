@@ -44,6 +44,7 @@ class WaspFacade
         void readInput();
         void solve();
         inline void onFinish() { solver.onFinish(); }
+        inline void onKill() { solver.onKill(); }
         
         inline void greetings(){ solver.greetings(); }
         
@@ -59,8 +60,7 @@ class WaspFacade
         
         inline void setWeakConstraintsAlgorithm( WEAK_CONSTRAINTS_ALG alg ) { weakConstraintsAlg = alg; }
         inline void setDisjCoresPreprocessing( bool value ) { disjCoresPreprocessing = value; }
-        inline void setMinimizeUnsatCore( bool value ) { solver.setMinimizeUnsatCore( value ); }
-        inline void setStratification( bool value ) { stratification = value; }
+        inline void setMinimizeUnsatCore( bool value ) { solver.setMinimizeUnsatCore( value ); }        
         
         inline void setQueryAlgorithm( unsigned int value ) { queryAlgorithm = value; }
         
@@ -77,15 +77,14 @@ class WaspFacade
         bool printDimacs;        
 
         WEAK_CONSTRAINTS_ALG weakConstraintsAlg;
-        bool disjCoresPreprocessing;
-        bool stratification;
+        bool disjCoresPreprocessing;        
         
         unsigned int queryAlgorithm;
 
         string combined_heuristic_option;
 };
 
-WaspFacade::WaspFacade() : numberOfModels( 0 ), maxModels( 1 ), printProgram( false ), printDimacs( false ), weakConstraintsAlg( OPT ), disjCoresPreprocessing( false ), stratification( true )
+WaspFacade::WaspFacade() : numberOfModels( 0 ), maxModels( 1 ), printProgram( false ), printDimacs( false ), weakConstraintsAlg( OPT ), disjCoresPreprocessing( false )
 {   
 }
 
@@ -128,7 +127,6 @@ WaspFacade::solveWithWeakConstraints()
 //    if( weakConstraintsAlg != OLLBB && weakConstraintsAlg != OLLBBREST )
 //        solver.simplifyOptimizationLiteralsAndUpdateLowerBound( w );
     w->setDisjCoresPreprocessing( disjCoresPreprocessing );
-    w->setStratification( stratification );
     unsigned int res = w->solve();    
     delete w;
     return res;

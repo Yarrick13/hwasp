@@ -164,7 +164,7 @@ WeakInterface::createAggregateFromOptimizationLiterals()
     for( unsigned int i = 0; i < solver.numberOfOptimizationLiterals( level() ); i++ )
     {
         OptimizationLiteralData& opt = solver.getOptimizationLiteral( level(), i );
-        if( opt.isRemoved() )
+        if( mixedApproach && opt.isRemoved() )
             continue;
         literals.push_back( opt.lit );
         weights.push_back( opt.weight );
@@ -223,14 +223,30 @@ WeakInterface::disjointCorePreprocessing()
 
 unsigned int
 WeakInterface::solve()
-{
+{    
+    if( wasp::Options::computeFirstModel )
+    {
+        solver.setMaxNumberOfSeconds( wasp::Options::budget );
+        unsigned int result = solver.solve();
+        solver.setMaxNumberOfSeconds( UINT_MAX );
+        if( result == INCOHERENT )
+            return result;        
+        if( result != INTERRUPTED )
+        {        
+            uint64_t cost = solver.computeCostOfModel( level() );
+            foundAnswerSet( cost );
+        }
+        solver.unrollToZero();
+        solver.clearConflictStatus();
+    }
+    
     unsigned int res = OPTIMUM_FOUND;
     for( int i = solver.numberOfLevels() - 1; i >= 0; i-- )
     {
         level_ = i;
         lb_ = solver.simplifyOptimizationLiterals( level() );
         ub_ = UINT64_MAX;
-        trace_msg( weakconstraints, 1, "Solving level " << level() << ": lb=" << lb_ << ", ub=" << ub_ );
+        trace_msg( weakconstraints, 1, "Solving level " << level() << ": lb=" << lb_ << ", ub=" << ub_ );                
         
         res = run();
         if( res == INCOHERENT )

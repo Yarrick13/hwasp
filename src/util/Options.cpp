@@ -57,6 +57,7 @@ namespace wasp
 #define OPTIONID_printprogram ( 'z' + 23 )
 #define OPTIONID_printdimacs ( 'z' + 24 )
 #define OPTIONID_multi ( 'z' + 25 )
+#define OPTIONID_lastModel ( 'z' + 26 )
 
 /* HEURISTIC OPTIONS */
 #define OPTIONID_fuheuristic ( 'z' + 30 )
@@ -98,6 +99,7 @@ namespace wasp
 #define OPTIONID_disjcores ( 'z' + 215 )
 #define OPTIONID_minimize ( 'z' + 216 )
 #define OPTIONID_stratification ( 'z' + 217 )
+#define OPTIONID_firstmodel ( 'z' + 218 )
     
 /* QUERY OPTIONS */
 #define OPTIONID_queryalgorithm ( 'z' + 300 )
@@ -124,6 +126,7 @@ OUTPUT_POLICY Options::outputPolicy = WASP_OUTPUT;
 
 bool Options::printProgram = false;
 bool Options::printDimacs = false;
+bool Options::printLastModelOnly = false;
 
 RESTARTS_POLICY Options::restartsPolicy = SEQUENCE_BASED_RESTARTS_POLICY;
 
@@ -152,6 +155,8 @@ WEAK_CONSTRAINTS_ALG Options::weakConstraintsAlg = OLL;
 bool Options::disjCoresPreprocessing = false;
 bool Options::minimizeUnsatCore = false;
 bool Options::stratification = true;
+bool Options::computeFirstModel = false;
+unsigned Options::budget = UINT_MAX;
 
 unsigned int Options::queryAlgorithm = NO_QUERY;
 unsigned int Options::queryVerbosity = 0;
@@ -198,6 +203,7 @@ Options::parse(
                 { "printprogram", no_argument, NULL, OPTIONID_printprogram },
                 { "printdimacs", no_argument, NULL, OPTIONID_printdimacs },
                 { "multi", no_argument, NULL, OPTIONID_multi },
+                { "printlatestmodel", no_argument, NULL, OPTIONID_lastModel },
 
                 /* HEURISTIC OPTIONS */
 //                { "heuristic-berkmin", optional_argument, NULL, OPTIONID_berkminheuristic },
@@ -240,6 +246,7 @@ Options::parse(
                 { "enable-disjcores", no_argument, NULL, OPTIONID_disjcores },
                 { "minimize-unsatcore", no_argument, NULL, OPTIONID_minimize },
                 { "disable-stratification", no_argument, NULL, OPTIONID_stratification },
+                { "compute-firstmodel", optional_argument, NULL, OPTIONID_firstmodel },
 
                 /* QUERY */
                 { "query-algorithm", optional_argument, NULL, OPTIONID_queryalgorithm },
@@ -332,6 +339,11 @@ Options::parse(
                 
             case OPTIONID_multi:
                 outputPolicy = MULTI;
+                break;
+                
+            case OPTIONID_lastModel:
+                outputPolicy = MULTI;
+                printLastModelOnly = true;
                 break;
 
             case OPTIONID_berkminheuristic:
@@ -493,6 +505,12 @@ Options::parse(
                 stratification = false;
                 break;
                 
+            case OPTIONID_firstmodel:
+                computeFirstModel = true;
+                if( optarg )
+                    budget = atoi( optarg );                    
+                break;
+                
             case OPTIONID_queryalgorithm:
                 queryAlgorithm = ITERATIVE_COHERENCE_TESTING;
                 if( optarg )
@@ -548,7 +566,6 @@ Options::setOptions(
     waspFacade.setWeakConstraintsAlgorithm( weakConstraintsAlg );
     waspFacade.setDisjCoresPreprocessing( disjCoresPreprocessing );
     waspFacade.setMinimizeUnsatCore( minimizeUnsatCore );
-    waspFacade.setStratification( stratification );
     waspFacade.setQueryAlgorithm( queryAlgorithm );
 }
 
