@@ -31,7 +31,8 @@
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), isConsitent( true ), conflictOccured( false ),
-	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), test( false )
+	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ),
+	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 )
 { }
 
 /*
@@ -366,6 +367,8 @@ PUPHeuristic::createOrder (
 		return false;
 	}
 
+	sNumberOfOrdersCreated++;
+
 	order.clear();
 	unsigned int maxSize = zones.size( ) + sensors.size( );
 	unsigned int nextNode = 1;
@@ -583,21 +586,11 @@ PUPHeuristic::makeAChoiceProtected( )
 	Assignment a;
 	bool found;
 
-
-//	if ( !test )
-//	{
-//		cout << order[ 0 ]->name << endl;
+//	add clauses like this
 //		vector< Literal > l;
-//
-//		for ( unsigned int i = 0; i < 3; i++ )
-//		{
-//			l.clear( );
-//			l.push_back( Literal( order[ 0 ]->usedIn[ i ]->positive, NEGATIVE ) );
-//			addClause( l );
-//		}
-//
-//		test = true;
-//	}
+//		l.push_back( Literal( .., POSITIVE/NEGATIVE ) );
+//		l.push_back( Literal( .., POSITIVE/NEGATIVE ) );
+//		addClause( l );
 
 	do
 	{
@@ -613,7 +606,8 @@ PUPHeuristic::makeAChoiceProtected( )
 			// solution should already be found at this point - check assignments
 			if ( index >= order.size( ) )
 			{
-				cout << "index!" << endl;
+				trace_msg( heuristic, 3, "All zones/sensors considered but no solution found - check assignments" );
+				sNumberOfOrderMaxReached++;
 
 				// all assignments are TRUE but something is UNDEFINED - set all UNDEFINED to FALSE
 				if ( undefined.size( ) > 0 )
@@ -687,6 +681,7 @@ PUPHeuristic::makeAChoiceProtected( )
 						assignments.pop_back( );
 
 					conflictHandled = true;
+					sNumberOfConflicts++;
 				}
 
 				conflictOccured = false;
@@ -771,6 +766,7 @@ PUPHeuristic::makeAChoiceProtected( )
 				assignments.pop_back( );
 
 				conflictOccured = true;
+				sNumberOfBacktracks++;
 			}
 			else
 			{
@@ -796,6 +792,7 @@ PUPHeuristic::makeAChoiceProtected( )
 	while( chosenVariable == 0 || !solver.isUndefined( chosenVariable ) );
 
 	assignedSinceConflict++;
+	sNumberOfRecommendations++;
 	return Literal( chosenVariable, POSITIVE );
 }
 
@@ -842,26 +839,28 @@ void
 PUPHeuristic::onFinishedSolving(
 	)
 {
-	vector < Var > trueInAS;
-	vector < Var > falseInAS;
-	vector < Pu* > removed;
+	printStatistics( );
 
-	trace_msg( heuristic, 1, "Minimize solution" );
-
-	cout << endl << endl << "after minimize " << endl;
-	minimize( &trueInAS, &falseInAS, &removed );
-
-	cout << "set to true" << endl;
-	for ( Var v : trueInAS )
-		cout <<"\t" << VariableNames::getName( v ) << endl;
-
-	cout << "set to false" << endl;
-	for ( Var v : falseInAS )
-		cout <<"\t" << VariableNames::getName( v ) << endl;
-
-	cout << "removed pu" << endl;
-	for ( Pu* pu : removed )
-		cout <<"\t" << pu->name << endl;
+//	vector < Var > trueInAS;
+//	vector < Var > falseInAS;
+//	vector < Pu* > removed;
+//
+//	trace_msg( heuristic, 1, "Minimize solution" );
+//
+//	cout << endl << endl << "after minimize " << endl;
+//	minimize( &trueInAS, &falseInAS, &removed );
+//
+//	cout << "set to true" << endl;
+//	for ( Var v : trueInAS )
+//		cout <<"\t" << VariableNames::getName( v ) << endl;
+//
+//	cout << "set to false" << endl;
+//	for ( Var v : falseInAS )
+//		cout <<"\t" << VariableNames::getName( v ) << endl;
+//
+//	cout << "removed pu" << endl;
+//	for ( Pu* pu : removed )
+//		cout <<"\t" << pu->name << endl;
 }
 
 void
@@ -976,5 +975,33 @@ PUPHeuristic::minimize(
 			}
 		}
 	}
+}
 
+void
+PUPHeuristic::printStatistics(
+	)
+{
+	unsigned int partnerUnitsUsed = 0;
+	bool found;
+
+	for ( Pu pu : partnerUnits )
+	{
+		found = false;
+		for ( unsigned int i = 0; i < pu.usedIn.size( ) && !found; i++ )
+		{
+			if ( solver.getTruthValue( pu.usedIn[ i ]->positive ) == TRUE )
+			{
+				found = true;
+				partnerUnitsUsed++;
+			}
+		}
+	}
+
+	cout << sNumberOfConflicts << " conflicts occured" << endl;
+	cout << sNumberOfBacktracks << " times a dead end was reached (required to take a step back)" << endl;
+	cout << sNumberOfOrdersCreated << " orders were created" << endl;
+	cout << sNumberOfRecommendations << " heuristic decisions made" << endl;
+	cout << partnerUnits.size( ) << " partnerunits were specified" << endl;
+	cout << partnerUnitsUsed << " partnerunits were used" << endl;
+	cout << sNumberOfOrderMaxReached << " times the last element in the order was handled without finding a solution (current solution was checked)" << endl;
 }

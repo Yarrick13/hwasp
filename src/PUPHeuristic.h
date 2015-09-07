@@ -76,7 +76,11 @@ class PUPHeuristic : public Heuristic
 		unsigned int assignedSinceConflict;
 		bool redoAfterConflict;
 
-		bool test;
+		unsigned int sNumberOfConflicts;
+		unsigned int sNumberOfBacktracks;
+		unsigned int sNumberOfOrdersCreated;
+		unsigned int sNumberOfRecommendations;
+		unsigned int sNumberOfOrderMaxReached;
 
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
@@ -165,6 +169,7 @@ class PUPHeuristic : public Heuristic
 		bool getUntriedPu( Pu* pu, vector < Var > tried );
 		bool getPu( Var assignment, Pu *pu );
 		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
+		void printStatistics( );
 };
 
 #endif
