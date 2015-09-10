@@ -138,7 +138,6 @@ WaspFacade::solve()
                     solver.optimumFound();
                     break;
             }
-            solver.onFinishedSolving( );
             return;
         }
     }
@@ -200,15 +199,27 @@ WaspFacade::setDecisionPolicy(
 //            break;
         
         case HEURISTIC_PUP:
-            solver.setHeuristic( new PUPHeuristic( solver ) );
+        	{
+			CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+			cbin->addHeuristic( "pup" );
+			solver.setHeuristic( cbin );
+			}
             break;
 
         case HEURISTIC_COLOURING:
-        	solver.setHeuristic( new ColouringHeuristic( solver ) );
+        	{
+			CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+			cbin->addHeuristic( "colouring" );
+			solver.setHeuristic( cbin );
+			}
         	break;
 
         case HEURISTIC_BINPACKING:
-        	solver.setHeuristic( new BinPackingHeuristic( solver ) );
+        	{
+        	CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+        	cbin->addHeuristic( "binpacking" );
+        	solver.setHeuristic( cbin );
+        	}
         	break;
 
         case HEURISTIC_COMBINED:

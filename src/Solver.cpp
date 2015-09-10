@@ -20,6 +20,7 @@
 #include "input/Dimacs.h"
 #include "HCComponent.h"
 #include "weakconstraints/WeakInterface.h"
+#include <time.h>
 #include <algorithm>
 #include <stdint.h>
 #include <vector>

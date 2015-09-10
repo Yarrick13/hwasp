@@ -60,6 +60,7 @@ class PUPHeuristic : public Heuristic
         void conflictOccurred( );
         unsigned int getTreshold( ){ return numberOfConflicts; };
         void onFinishedSolving( );
+        bool isInputCorrect( ) { return inputCorrect; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -75,6 +76,8 @@ class PUPHeuristic : public Heuristic
 		bool conflictHandled;
 		unsigned int assignedSinceConflict;
 		bool redoAfterConflict;
+		bool inputCorrect;
+		bool solutionFound;
 
 		unsigned int sNumberOfConflicts;
 		unsigned int sNumberOfBacktracks;
@@ -157,6 +160,7 @@ class PUPHeuristic : public Heuristic
 		void initRelation ( );
 		bool resetHeuristic ( );
 		void processVariable ( Var v );
+		bool checkInput( );
 		void initUnitAssignments( ZoneAssignment pu, unsigned int type );
 		bool createOrder ( );
 

@@ -39,15 +39,16 @@ class Heuristic
         virtual void onLiteralInvolvedInConflict( Literal literal ) = 0;
         virtual void onUnrollingVariable( Var var ) = 0;
         virtual void incrementHeuristicValues( Var var ) = 0;
-        virtual void simplifyVariablesAtLevelZero() = 0;
-        virtual void conflictOccurred() = 0;
+        virtual void simplifyVariablesAtLevelZero( ) = 0;
+        virtual void conflictOccurred( ) = 0;
         virtual unsigned int getTreshold( ) = 0;
-        virtual void onFinishedSolving() = 0;
+        virtual void onFinishedSolving( ) = 0;
+        virtual bool isInputCorrect( ) = 0;
         inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
-        inline void removePrefChoices() { preferredChoices.clear(); }
+        inline void removePrefChoices( ) { preferredChoices.clear(); }
 
     protected:
-        virtual Literal makeAChoiceProtected() = 0;
+        virtual Literal makeAChoiceProtected( ) = 0;
         void addClause( vector< Literal > literals );
 
         Solver& solver;

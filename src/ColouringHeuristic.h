@@ -37,6 +37,7 @@ class ColouringHeuristic : public Heuristic
         void conflictOccurred(){ conflictOccured = true; }
         unsigned int getTreshold( ){ return numberOfConflicts; };
         void onFinishedSolving( ) { };
+        bool isInputCorrect( ) { return inputCorrect; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -46,6 +47,7 @@ class ColouringHeuristic : public Heuristic
         unsigned int numberOfColours;
         unsigned int numberOfConflicts;
         bool conflictOccured;
+        bool inputCorrect;
 
         unsigned int choice;
 
@@ -89,6 +91,7 @@ class ColouringHeuristic : public Heuristic
         vector< VertexDegree > order;
 
         void processVariable( Var v );
+        bool checkInput( );
         void initEdges( );
 
         VertexDegree newVertexDegree( ){ VertexDegree vd; return vd; }

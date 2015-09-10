@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 BinPackingHeuristic::BinPackingHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), numberOfConflicts( 0 ), isConsistent( true ), conflictOccured( false )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), numberOfConflicts( 0 ), isConsistent( true ), conflictOccured( false ), inputCorrect( true )
 {
 }
 
@@ -43,115 +43,123 @@ BinPackingHeuristic::processVariable (
 {
 	string name = VariableNames::getName( variable );
 
-	name.erase(std::remove(name.begin(),name.end(),' '),name.end());
-
-	string tmp;
-	string tmp2;
-
-	bool found;
-	unsigned int i;
-
-	if( name.compare( 0, 9, "nrofbins(" ) == 0 )
+	try
 	{
-		HeuristicUtil::getName( name, &tmp );
+		name.erase(std::remove(name.begin(),name.end(),' '),name.end());
 
-		numberOfBins = atoi( tmp.c_str( ) );
+		string tmp;
+		string tmp2;
 
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( number of bins )" );
-	}
-	else if( name.compare( 0, 11, "maxbinsize(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
+		bool found;
+		unsigned int i;
 
-		maxBinSize = atoi( tmp.c_str( ) );
-
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( max binsize )" );
-	}
-	else if( name.compare( 0, 5, "size(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		// check if entry for this vertex already exists (create otherwise)
-		found = false;
-		for ( i = 0; i < items.size( ) && !found; i++ )
+		if( name.compare( 0, 9, "nrofbins(" ) == 0 )
 		{
-			if ( items[ i ]->name == tmp )
-			{
-				found = true;
-				items[ i ]->size = atoi( tmp2.c_str( ) );
-			}
+			HeuristicUtil::getName( name, &tmp );
+
+			numberOfBins = atoi( tmp.c_str( ) );
+
+			trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( number of bins )" );
 		}
-		if ( !found )
+		else if( name.compare( 0, 11, "maxbinsize(" ) == 0 )
 		{
+			HeuristicUtil::getName( name, &tmp );
+
+			maxBinSize = atoi( tmp.c_str( ) );
+
+			trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( max binsize )" );
+		}
+		else if( name.compare( 0, 5, "size(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			// check if entry for this vertex already exists (create otherwise)
+			found = false;
+			for ( i = 0; i < items.size( ) && !found; i++ )
+			{
+				if ( items[ i ]->name == tmp )
+				{
+					found = true;
+					items[ i ]->size = atoi( tmp2.c_str( ) );
+				}
+			}
+			if ( !found )
+			{
+				Item* item = new Item;
+				item->name = tmp;
+				item->size = atoi( tmp2.c_str( ) );
+
+				items.push_back( item );
+			}
+
+			trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( item and size )" );
+		}
+		else if( name.compare( 0, 11, "vertex_bin(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			Item2Bin* i2b = new Item2Bin;
+			i2b->variable = variable;
+			i2b->bin = tmp2;
+			i2b->item = tmp;
+
+			item2bin.push_back( i2b );
+
+			Bin* bin = new Bin;
+
+			// check if entry for this bin already exists (create otherwise)
+			found = false;
+			for ( i = 0; i < bins.size( ) && !found; i++ )
+			{
+				if ( bins[ i ]->name == tmp2 )
+				{
+					found = true;
+					bins[ i ]->usedIn.push_back( i2b );
+
+					bin = bins.back( );
+				}
+			}
+			if ( !found )
+			{
+				bin->name = tmp2;
+				bin->usedIn.push_back( i2b );
+
+				bins.push_back( bin );
+			}
+
+
 			Item* item = new Item;
-			item->name = tmp;
-			item->size = atoi( tmp2.c_str( ) );
 
-			items.push_back( item );
+			// check if entry for this vertex already exists (create otherwise)
+			found = false;
+			for ( i = 0; i < items.size( ) && !found; i++ )
+			{
+				if ( items[ i ]->name == tmp )
+				{
+					found = true;
+					items[ i ]->usedIn.push_back( i2b );
+					items[ i ]->correspondingBin.push_back( bin );
+					items[ i ]->tried.push_back( false );
+				}
+			}
+
+			if ( !found )
+			{
+				item->name = tmp;
+				item->usedIn.push_back( i2b );
+				item->correspondingBin.push_back( bin );
+				item->tried.push_back( false );
+
+				items.push_back( item );
+			}
+
+			trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( vertex bin )" );
 		}
-
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( item and size )" );
 	}
-	else if( name.compare( 0, 11, "vertex_bin(" ) == 0 )
+	catch ( int e )
 	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		Item2Bin* i2b = new Item2Bin;
-		i2b->variable = variable;
-		i2b->bin = tmp2;
-		i2b->item = tmp;
-
-		item2bin.push_back( i2b );
-
-		Bin* bin = new Bin;
-
-		// check if entry for this bin already exists (create otherwise)
-		found = false;
-		for ( i = 0; i < bins.size( ) && !found; i++ )
-		{
-			if ( bins[ i ]->name == tmp2 )
-			{
-				found = true;
-				bins[ i ]->usedIn.push_back( i2b );
-
-				bin = bins.back( );
-			}
-		}
-		if ( !found )
-		{
-			bin->name = tmp2;
-			bin->usedIn.push_back( i2b );
-
-			bins.push_back( bin );
-		}
-
-
-		Item* item = new Item;
-
-		// check if entry for this vertex already exists (create otherwise)
-		found = false;
-		for ( i = 0; i < items.size( ) && !found; i++ )
-		{
-			if ( items[ i ]->name == tmp )
-			{
-				found = true;
-				items[ i ]->usedIn.push_back( i2b );
-				items[ i ]->correspondingBin.push_back( bin );
-				items[ i ]->tried.push_back( false );
-			}
-		}
-
-		if ( !found )
-		{
-			item->name = tmp;
-			item->usedIn.push_back( i2b );
-			item->correspondingBin.push_back( bin );
-			item->tried.push_back( false );
-
-			items.push_back( item );
-		}
-
-		trace_msg( heuristic, 3, "Processed variable " << variable << " " << name << " ( vertex bin )" );
+		trace_msg( heuristic, 3, "Errors while processing " << name );
+		inputCorrect = false;
 	}
 }
 
@@ -230,26 +238,44 @@ BinPackingHeuristic::onFinishedParsing (
 			processVariable( variable );
 	}
 
-	initItemsize( );
+	inputCorrect = checkInput( );
 
-	trace_msg( heuristic, 1, "Start heuristic" );
-
-	if ( !isPackingPossible( ) )
+	if ( inputCorrect )
 	{
-		trace_msg( heuristic, 2, "Not enough space in all bins for all vertices!");
-		isConsistent = false;
+		initItemsize( );
+
+		trace_msg( heuristic, 1, "Start heuristic" );
+
+		if ( !isPackingPossible( ) )
+		{
+			trace_msg( heuristic, 2, "Not enough space in all bins for all vertices!");
+			isConsistent = false;
+		}
+		else
+		{
+			trace_msg( heuristic, 2, "Creating order" );
+
+			quicksort( items, 0, items.size( ) );
+
+			for ( unsigned int i = 0; i < items.size( ); i++ )
+				order += items[ i ]->name + ", ";
+
+			trace_msg( heuristic, 3, "Considering order " + order );
+		}
 	}
-	else
-	{
-		trace_msg( heuristic, 2, "Creating order" );
+}
 
-		quicksort( items, 0, items.size( ) );
+bool
+BinPackingHeuristic::checkInput(
+	)
+{
+	if ( inputCorrect == false )
+		return false;
 
-		for ( unsigned int i = 0; i < items.size( ); i++ )
-			order += items[ i ]->name + ", ";
+	if ( bins.size( ) == 0 || items.size( ) == 0 || item2bin.size( ) == 0 )
+		return false;
 
-		trace_msg( heuristic, 3, "Considering order " + order );
-	}
+	return true;
 }
 
 /*

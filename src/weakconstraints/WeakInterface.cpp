@@ -297,6 +297,7 @@ WeakInterface::foundAnswerSet(
 
     ub_ = cost;
     solver.printAnswerSet();
+    solver.onFinishedSolving( );
     Vector< uint64_t > costs;
     solver.computeCostOfModel( costs );
     solver.printOptimizationValue( costs );

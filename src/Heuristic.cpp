@@ -28,7 +28,13 @@ Heuristic::makeAChoice()
             if( solver.isUndefined( preferredChoices[ i ].getVariable() ) )
                 return preferredChoices[ i ];
     }
-    return makeAChoiceProtected();
+
+    Literal l = makeAChoiceProtected( );
+
+    if ( l == Literal::null )
+    	cout << "heuristic returned literal null" << endl;
+
+    return l;
 }
 
 void

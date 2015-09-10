@@ -606,7 +606,7 @@ Learning::analyzeFinal(
         Reason* reason = solver.getImplicant( nextVar );
         if( reason == NULL )
         {
-            assert( solver.isAssumption( nextVar ) );
+        	assert( solver.isAssumption( nextVar ) );
             assert( solver.getDecisionLevel( nextVar ) > 0 );
             trace_msg( weakconstraints, 4, "it was a choice: added" );
             learnedClause->addLiteralInLearnedClause( next );

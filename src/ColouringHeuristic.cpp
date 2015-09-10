@@ -31,7 +31,7 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), numberOfConflicts( 0 ), conflictOccured( false ), choice( 0 )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), numberOfConflicts( 0 ), conflictOccured( false ), inputCorrect( true ), choice( 0 )
 {
 }
 
@@ -44,92 +44,100 @@ ColouringHeuristic::processVariable (
 {
 	string name = VariableNames::getName( v );
 
-	name.erase(std::remove(name.begin(),name.end(),' '),name.end());
-
-	string tmp;
-	string tmp2;
-
-	bool found;
-	unsigned int i;
-
-	if( name.compare( 0, 13, "chosenColour(" ) == 0 )
+	try
 	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
+		name.erase(std::remove(name.begin(),name.end(),' '),name.end());
 
-		ColourAssignment ca;
-		ca.variable = v;
-		ca.node = tmp;
-		ca.colour = tmp2;
+		string tmp;
+		string tmp2;
 
-		colourAssignments.push_back( ca );
+		bool found;
+		unsigned int i;
 
-		found = false;
-		for ( i = 0; i < vertices.size( ) && !found; i++ )
+		if( name.compare( 0, 13, "chosenColour(" ) == 0 )
 		{
-			if ( vertices[ i ].name == tmp )
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			ColourAssignment ca;
+			ca.variable = v;
+			ca.node = tmp;
+			ca.colour = tmp2;
+
+			colourAssignments.push_back( ca );
+
+			found = false;
+			for ( i = 0; i < vertices.size( ) && !found; i++ )
 			{
-				found = true;
-				vertices[ i ].usedIn.push_back( ca );
+				if ( vertices[ i ].name == tmp )
+				{
+					found = true;
+					vertices[ i ].usedIn.push_back( ca );
+				}
 			}
-		}
 
-		if ( !found )
-		{
-			Vertex vertex;
-			vertex.name = tmp;
-			vertex.degree = 0;
-			vertex.current= 0;
-			vertex.usedIn.push_back( ca );
-
-			vertices.push_back( vertex );
-		}
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( colour assignment and vertex )" );
-	}
-	else if( name.compare( 0, 7, "degree(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		found = false;
-		for ( i = 0; i < vertices.size( ) && !found; i++ )
-		{
-			if ( vertices[ i ].name == tmp )
+			if ( !found )
 			{
-				found = true;
-				vertices[ i ].degree = atoi( tmp2.c_str( ) );
+				Vertex vertex;
+				vertex.name = tmp;
+				vertex.degree = 0;
+				vertex.current= 0;
+				vertex.usedIn.push_back( ca );
+
+				vertices.push_back( vertex );
 			}
-		}
 
-		if ( !found )
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( colour assignment and vertex )" );
+		}
+		else if( name.compare( 0, 7, "degree(" ) == 0 )
 		{
-			Vertex vertex;
-			vertex.name = tmp;
-			vertex.degree = 0;
-			vertex.degree = atoi( tmp2.c_str( ) );
-			vertex.current = 0;
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
 
-			vertices.push_back( vertex );
+			found = false;
+			for ( i = 0; i < vertices.size( ) && !found; i++ )
+			{
+				if ( vertices[ i ].name == tmp )
+				{
+					found = true;
+					vertices[ i ].degree = atoi( tmp2.c_str( ) );
+				}
+			}
+
+			if ( !found )
+			{
+				Vertex vertex;
+				vertex.name = tmp;
+				vertex.degree = 0;
+				vertex.degree = atoi( tmp2.c_str( ) );
+				vertex.current = 0;
+
+				vertices.push_back( vertex );
+			}
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( degree and vertex )" );
 		}
+		else if( name.compare( 0, 11, "nrofcolors(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
 
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( degree and vertex )" );
+			numberOfColours = atoi( tmp.c_str( ) );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( number of colours )" );
+		}
+		else if( name.compare( 0, 5, "link(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			Link l;
+			l.vertex1 = tmp;
+			l.vertex2 = tmp2;
+
+			links.push_back( l );
+		}
 	}
-	else if( name.compare( 0, 11, "nrofcolors(" ) == 0 )
+	catch ( int e )
 	{
-		HeuristicUtil::getName( name, &tmp );
-
-		numberOfColours = atoi( tmp.c_str( ) );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( number of colours )" );
-	}
-	else if( name.compare( 0, 5, "link(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		Link l;
-		l.vertex1 = tmp;
-		l.vertex2 = tmp2;
-
-		links.push_back( l );
+		trace_msg( heuristic, 3, "Error while parsing " << name );
+		inputCorrect = false;
 	}
 }
 
@@ -191,42 +199,60 @@ ColouringHeuristic::onFinishedParsing (
 			processVariable( variable );
 	}
 
-	trace_msg( heuristic, 1, "Start heuristic" );
+	inputCorrect = checkInput( );
 
-	// for lcv
-	//-------
-//	trace_msg( heuristic, 2, "Initialize edges" );
-//	initEdges( );
-	//-------
-
-	trace_msg( heuristic, 2, "Creating order" );
-
-	quicksort( vertices, 0, vertices.size( ) );
-
-	order.push_back( newVertexDegree( ) );
-	order.back( ).degree = vertices[ 0 ].degree;
-	order.back( ).vertices.push_back( &vertices[ 0 ] );
-
-	for ( unsigned int i = 1; i < vertices.size( ); i++ )
+	if ( inputCorrect )
 	{
-		if ( vertices[ i ].degree != order.back( ).degree )
+		trace_msg( heuristic, 1, "Start heuristic" );
+
+		// for lcv
+		//-------
+	//	trace_msg( heuristic, 2, "Initialize edges" );
+	//	initEdges( );
+		//-------
+
+		trace_msg( heuristic, 2, "Creating order" );
+
+		quicksort( vertices, 0, vertices.size( ) );
+
+		order.push_back( newVertexDegree( ) );
+		order.back( ).degree = vertices[ 0 ].degree;
+		order.back( ).vertices.push_back( &vertices[ 0 ] );
+
+		for ( unsigned int i = 1; i < vertices.size( ); i++ )
 		{
-			order.push_back( newVertexDegree( ) );
-			order.back( ).degree = vertices[ i ].degree;
+			if ( vertices[ i ].degree != order.back( ).degree )
+			{
+				order.push_back( newVertexDegree( ) );
+				order.back( ).degree = vertices[ i ].degree;
+			}
+
+			order.back( ).vertices.push_back( &vertices[ i ] );
 		}
 
-		order.back( ).vertices.push_back( &vertices[ i ] );
+		for ( unsigned int i = 0; i < order.size( ); i++ )
+		{
+			orderOutput += "with degree " + to_string( order[ i ].degree ) + ": ";
+
+			for ( unsigned int j = 0; j < order[ i ].vertices.size( ); j++ )
+				orderOutput += order[ i ].vertices[ j ]->name + ", ";
+		}
+
+		trace_msg( heuristic, 3, "Considering order " + orderOutput );
 	}
+}
 
-	for ( unsigned int i = 0; i < order.size( ); i++ )
-	{
-		orderOutput += "with degree " + to_string( order[ i ].degree ) + ": ";
+bool
+ColouringHeuristic::checkInput(
+	)
+{
+	if ( inputCorrect == false )
+		return false;
 
-		for ( unsigned int j = 0; j < order[ i ].vertices.size( ); j++ )
-			orderOutput += order[ i ].vertices[ j ]->name + ", ";
-	}
+	if ( links.size( ) == 0 || colourAssignments.size( ) == 0 || vertices.size( ) == 0 )
+		return false;
 
-	trace_msg( heuristic, 3, "Considering order " + orderOutput );
+	return true;
 }
 
 bool

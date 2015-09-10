@@ -36,6 +36,7 @@ class BinPackingHeuristic : public Heuristic
         void conflictOccurred(){ conflictOccured = true; }
         unsigned int getTreshold( ){ return numberOfConflicts; }
         void onFinishedSolving( ) { };
+        bool isInputCorrect( ) { return inputCorrect; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -47,6 +48,7 @@ class BinPackingHeuristic : public Heuristic
         unsigned int numberOfConflicts;
         bool isConsistent;
         bool conflictOccured;			// true after conflict, otherwise false
+        bool inputCorrect;
 
         struct Item2Bin
 		{
@@ -80,6 +82,7 @@ class BinPackingHeuristic : public Heuristic
         vector< Item2Bin* > item2bin;
 
         void processVariable( Var variable );
+        bool checkInput( );
         void initItemsize( );
         bool isPackingPossible( );
         unsigned int getCurrentBinContentSize( Bin* bin );

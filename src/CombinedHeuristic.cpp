@@ -136,6 +136,28 @@ CombinedHeuristic::onFinishedParsing(
 
 	for ( Heuristic* h : heuristics )
 		h->onFinishedParsing( );
+
+	isInputCorrect( );
+}
+
+bool
+CombinedHeuristic::isInputCorrect(
+	)
+{
+	bool isCorrect = true;
+
+	for ( unsigned int i = 0; i < heuristics.size( ); i++ )
+	{
+		if ( !heuristics[ i ]->isInputCorrect( ) )
+		{
+			cout <<  heursisticsNames[ i ] << " will not be used because the input was not in the correct format" << endl;
+			heuristics.erase( heuristics.begin( ) + i );
+			heursisticsNames.erase( heursisticsNames.begin( ) + i );
+			isCorrect = false;
+		}
+	}
+
+	return isCorrect;
 }
 
 void
@@ -152,11 +174,20 @@ CombinedHeuristic::addHeuristic(
 	std::transform(h.begin(), h.end(), h.begin(), HeuristicUtil::tolower);
 
 	if ( h == "pup" )
+	{
 		heuristics.push_back( new PUPHeuristic( solver ) );
+		heursisticsNames.push_back( "PuP heuristic" );
+	}
 	else if ( h == "colouring" )
+	{
 		heuristics.push_back( new ColouringHeuristic( solver ) );
+		heursisticsNames.push_back( "colouring heuristic " );
+	}
 	else if ( h == "binpacking" )
+	{
 		heuristics.push_back( new BinPackingHeuristic( solver ) );
+		heursisticsNames.push_back( "bin packing heuristic" );
+	}
 	else
 		return false;
 
@@ -172,6 +203,16 @@ CombinedHeuristic::getTreshold(
 	else
 		return minisat->getTreshold( );
 };
+
+void
+CombinedHeuristic::onFinishedSolving(
+	)
+{
+	minisat->onFinishedSolving( );
+
+	for ( Heuristic* h : heuristics )
+		h->onFinishedSolving( );
+}
 
 double
 CombinedHeuristic::getTresholdStatistics(

@@ -31,7 +31,7 @@
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), isConsitent( true ), conflictOccured( false ),
-	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ),
+	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), inputCorrect( true ), solutionFound( false ),
 	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 )
 { }
 
@@ -48,123 +48,131 @@ PUPHeuristic::processVariable (
 {
 	string name = VariableNames::getName( v );
 
-	name.erase(std::remove(name.begin(),name.end(),' '),name.end());
-
-	string tmp;
-	string tmp2;
-
-	if( name.compare( 0, 5, "zone(" ) == 0 )
+	try
 	{
-		HeuristicUtil::getName( name, &tmp );
+		name.erase(std::remove(name.begin(),name.end(),' '),name.end());
 
-		Node zone;
-		zone.name = tmp;
-		zone.var = v;
-		zone.considered = 0;
-		zone.type = ZONE;
+		string tmp;
+		string tmp2;
 
-		zones.push_back( zone );
+		if( name.compare( 0, 5, "zone(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
 
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone )" );
+			Node zone;
+			zone.name = tmp;
+			zone.var = v;
+			zone.considered = 0;
+			zone.type = ZONE;
+
+			zones.push_back( zone );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone )" );
+		}
+		else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
+
+			Node sensor;
+			sensor.name = tmp;
+			sensor.var = v;
+			sensor.considered = 0;
+			sensor.type = SENSOR;
+
+			sensors.push_back( sensor );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( sensor )" );
+		}
+		else if( name.compare( 0, 12, "zone2sensor(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			Connection c;
+			c.from = tmp;
+			c.to = tmp2;
+			c.var = v;
+
+			zone2sensor.push_back( c );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone2sensor )" );
+		}
+		else if( name.compare( 0, 8, "comUnit(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
+
+			Pu pu;
+			pu.name = tmp;
+			pu.var = v;
+
+			pu.numberOfPartners = 0;
+			pu.numberOfZones = 0;
+			pu.numberOfSensors = 0;
+			pu.removed = false;
+
+			partnerUnits.push_back( pu );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( partnerunit )" );
+		}
+		else if( name.compare( 0, 10, "unit2zone(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			ZoneAssignment za;
+			za.pu = tmp;
+			za.to = tmp2;
+			za.positive = v;
+			za.type = ZONE;
+
+			initUnitAssignments( za, U2Z );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2zone )" );
+		}
+		else if( name.compare( 0, 12, "unit2sensor(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			ZoneAssignment za;
+			za.pu = tmp;
+			za.to = tmp2;
+			za.positive = v;
+			za.type = SENSOR;
+
+			initUnitAssignments( za, U2S );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2sensor )" );
+		}
+		else if( name.compare( 0, 12, "maxElements(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
+
+			maxElementsOnPu = strtoul( tmp.c_str(), NULL, 0 );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( maxElements )" << " with max. " << maxElementsOnPu << " elements on a PU");
+		}
+		else if( name.compare( 0, 6, "maxPU(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp );
+
+			maxPu = strtoul( tmp.c_str(), NULL, 0 );
+
+			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( maxPu )" << " with max. " << maxPu << " partners on a PU" );
+		}
+		else if( name.compare( 0, 13, "partnerunits(" ) == 0 )
+		{
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
+
+			PartnerUnitConnection puc;
+			puc.variable = v;
+			puc.unit1 = tmp;
+			puc.unit2 = tmp2;
+
+			partnerUnitConnections.push_back( puc );
+		}
 	}
-	else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
+	catch ( int e )
 	{
-		HeuristicUtil::getName( name, &tmp );
-
-		Node sensor;
-		sensor.name = tmp;
-		sensor.var = v;
-		sensor.considered = 0;
-		sensor.type = SENSOR;
-
-		sensors.push_back( sensor );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( sensor )" );
-	}
-	else if( name.compare( 0, 12, "zone2sensor(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		Connection c;
-		c.from = tmp;
-		c.to = tmp2;
-		c.var = v;
-
-		zone2sensor.push_back( c );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone2sensor )" );
-	}
-	else if( name.compare( 0, 8, "comUnit(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
-
-		Pu pu;
-		pu.name = tmp;
-		pu.var = v;
-
-		pu.numberOfPartners = 0;
-		pu.numberOfZones = 0;
-		pu.numberOfSensors = 0;
-		pu.removed = false;
-
-		partnerUnits.push_back( pu );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( partnerunit )" );
-	}
-	else if( name.compare( 0, 10, "unit2zone(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		ZoneAssignment za;
-		za.pu = tmp;
-		za.to = tmp2;
-		za.positive = v;
-		za.type = ZONE;
-
-		initUnitAssignments( za, U2Z );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2zone )" );
-	}
-	else if( name.compare( 0, 12, "unit2sensor(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		ZoneAssignment za;
-		za.pu = tmp;
-		za.to = tmp2;
-		za.positive = v;
-		za.type = SENSOR;
-
-		initUnitAssignments( za, U2S );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( unit2sensor )" );
-	}
-	else if( name.compare( 0, 12, "maxElements(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
-
-		maxElementsOnPu = strtoul( tmp.c_str(), NULL, 0 );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( maxElements )" << " with max. " << maxElementsOnPu << " elements on a PU");
-	}
-	else if( name.compare( 0, 6, "maxPU(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp );
-
-		maxPu = strtoul( tmp.c_str(), NULL, 0 );
-
-		trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( maxPu )" << " with max. " << maxPu << " partners on a PU" );
-	}
-	else if( name.compare( 0, 13, "partnerunits(" ) == 0 )
-	{
-		HeuristicUtil::getName( name, &tmp, &tmp2 );
-
-		PartnerUnitConnection puc;
-		puc.variable = v;
-		puc.unit1 = tmp;
-		puc.unit2 = tmp2;
-
-		partnerUnitConnections.push_back( puc );
+		trace_msg( heuristic, 3, "Error while parsing " << name );
+		inputCorrect = false;
 	}
 }
 
@@ -185,14 +193,34 @@ PUPHeuristic::onFinishedParsing (
 			processVariable( variable );
 	}
 
-	initRelation( );
+	inputCorrect = checkInput( );
 
-	if ( zones.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) || sensors.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) )
-		isConsitent = false;
-	else
-		isConsitent = resetHeuristic( );
+	if ( inputCorrect )
+	{
+		initRelation( );
 
-	trace_msg( heuristic, 1, "Start heuristic" );
+		if ( zones.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) || sensors.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) )
+			isConsitent = false;
+		else
+			isConsitent = resetHeuristic( );
+
+		trace_msg( heuristic, 1, "Start heuristic" );
+	}
+}
+
+bool
+PUPHeuristic::checkInput(
+	)
+{
+	if ( inputCorrect == false )
+		return false;
+
+	if ( zones.size( ) == 0 || sensors.size( ) == 0 || unit2zone.size( ) == 0 || unit2zone.size( ) == 0 || unit2sensor.size( ) == 0 ||
+			partnerUnits.size( ) == 0 || partnerUnitConnections.size( ) == 0 )
+		return false;
+
+
+	return true;
 }
 
 /*
@@ -592,10 +620,44 @@ PUPHeuristic::makeAChoiceProtected( )
 //		l.push_back( Literal( .., POSITIVE/NEGATIVE ) );
 //		addClause( l );
 
+	if ( solutionFound )
+	{
+		trace_msg( heuristic, 3, "Look for another solution - reset heuristic" );
+
+		startAt = 0;
+		index = 0;
+		numberOfConflicts = 0;
+		isConsitent = true;
+		conflictOccured = false;
+		conflictHandled = true;
+		assignedSinceConflict = 0;
+		redoAfterConflict = false;
+		inputCorrect = false;
+		solutionFound = false;
+		sNumberOfConflicts = 0;
+		sNumberOfBacktracks = 0;
+		sNumberOfOrdersCreated = 0;
+		sNumberOfRecommendations = 0;
+		sNumberOfOrderMaxReached = 0;
+
+		assignments.clear( );
+
+		for ( unsigned int i = 0; i < zones.size( ); i++ )
+			zones[ i ].considered = 0;
+
+		for ( unsigned int i = 0; i < sensors.size( ); i++ )
+			sensors[ i ].considered = 0;
+
+		createOrder( );
+	}
+
 	do
 	{
 		if ( !isConsitent )
+		{
+			cout << "lit null" << endl;
 			return Literal::null;
+		}
 
 		chosenVariable = 0;
 
@@ -646,10 +708,16 @@ PUPHeuristic::makeAChoiceProtected( )
 				// if all assignments are TRUE, get all that are UNDEFINED
 				if ( allTrue )
 				{
-					for ( unsigned int i = 0; i < variables.size( ); i++ )
+					for ( unsigned int i = 0; i < unit2zone.size( ); i++ )
 					{
-						if ( solver.isUndefined( variables[ i ] ) )
-							undefined.push_back( variables[ i ] );
+						if ( solver.isUndefined( unit2zone[ i ].positive) )
+							undefined.push_back( unit2zone[ i ].positive );
+					}
+
+					for ( unsigned int i = 0; i < unit2sensor.size( ); i++ )
+					{
+						if ( solver.isUndefined( unit2sensor[ i ].positive ) )
+							undefined.push_back( unit2sensor[ i ].positive );
 					}
 
 					return Literal( undefined[ 0 ], NEGATIVE );
@@ -839,7 +907,24 @@ void
 PUPHeuristic::onFinishedSolving(
 	)
 {
+	solutionFound = true;
 	printStatistics( );
+
+
+	trace_msg( heuristic, 2, "Adding constraint to avoid previous solution" );
+	vector< Literal > l;
+	for ( Pu pu : partnerUnits )
+	{
+		for ( ZoneAssignment* za : pu.usedIn)
+		{
+			if ( solver.getTruthValue( za->positive ) == TRUE )
+			{
+				cout << "add " << za->positive << " " << VariableNames::getName( za->positive ) << endl;
+				l.push_back( Literal( za->positive, NEGATIVE ) );
+			}
+		}
+	}
+	addClause( l );
 
 //	vector < Var > trueInAS;
 //	vector < Var > falseInAS;
