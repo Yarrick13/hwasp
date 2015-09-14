@@ -170,7 +170,7 @@ class PUPHeuristic : public Heuristic
 		bool getTriedAssignments( Node* node, vector < Var >* tried );
 		bool getUnusedPu( Pu* pu );
 		bool isPartnerUsed( Pu pu );
-		bool getUntriedPu( Pu* pu, vector < Var > tried );
+		bool getUntriedPu( Pu* pu, const vector < Var >& tried );
 		bool getPu( Var assignment, Pu *pu );
 		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
 		void printStatistics( );

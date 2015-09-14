@@ -26,11 +26,11 @@
 class CombinedHeuristic : public Heuristic
 {
     public:
-		CombinedHeuristic( Solver& solver );
+		CombinedHeuristic( Solver& solver, bool useTreshold, unsigned int treshold = 100 );
         ~CombinedHeuristic();
         void onNewVariable( Var v );
         void onNewVariableRuntime( Var v );
-        void onLiteralInvolvedInConflict( Literal l );
+        void onLiteralInvolvedInConflict( Literal );
         void onUnrollingVariable( Var v );
         void incrementHeuristicValues( Var v );
         void simplifyVariablesAtLevelZero( );
@@ -48,6 +48,8 @@ class CombinedHeuristic : public Heuristic
 
     private:
         unsigned int index;
+        unsigned int th;
+        bool useTh;
 
         Heuristic* minisat;
         vector< Heuristic* > heuristics;

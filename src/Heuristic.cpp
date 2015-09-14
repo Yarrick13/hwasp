@@ -29,17 +29,12 @@ Heuristic::makeAChoice()
                 return preferredChoices[ i ];
     }
 
-    Literal l = makeAChoiceProtected( );
-
-    if ( l == Literal::null )
-    	cout << "heuristic returned literal null" << endl;
-
-    return l;
+    return makeAChoiceProtected( );
 }
 
 void
 Heuristic::addClause(
-	vector< Literal > literals
+	const vector< Literal >& literals
 )
 {
 	if ( solver.getCurrentDecisionLevel( ) != 0 )
@@ -51,4 +46,14 @@ Heuristic::addClause(
 		clause->addLiteral( l );
 
 	solver.addClauseRuntime( clause );
+}
+
+void
+Heuristic::unrollHeuristic(
+	)
+{
+	trace_msg( heuristic, 1, "Unroll heuristic" );
+
+	if ( solver.getCurrentDecisionLevel( ) > 0 )
+		solver.unroll( solver.getNumberOfAssumptions( ) );
 }

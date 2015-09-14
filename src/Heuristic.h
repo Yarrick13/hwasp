@@ -46,10 +46,11 @@ class Heuristic
         virtual bool isInputCorrect( ) = 0;
         inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
         inline void removePrefChoices( ) { preferredChoices.clear(); }
+        void unrollHeuristic ( );
 
     protected:
         virtual Literal makeAChoiceProtected( ) = 0;
-        void addClause( vector< Literal > literals );
+        void addClause( const vector< Literal >& literals );
 
         Solver& solver;
 

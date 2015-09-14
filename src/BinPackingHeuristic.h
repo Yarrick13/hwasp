@@ -87,8 +87,8 @@ class BinPackingHeuristic : public Heuristic
         bool isPackingPossible( );
         unsigned int getCurrentBinContentSize( Bin* bin );
 
-        void quicksort( vector< Item* > &items, unsigned int p, unsigned int q );
-		int partition( vector< Item* > &items, unsigned int p, unsigned int q);
+        void quicksort( vector< Item* >& items, unsigned int p, unsigned int q );
+		int partition( vector< Item* >& items, unsigned int p, unsigned int q);
 };
 
 #endif

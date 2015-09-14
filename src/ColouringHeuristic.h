@@ -100,8 +100,8 @@ class ColouringHeuristic : public Heuristic
         bool getVertexLCV( VertexDegree vd, unsigned int mrv, unsigned int* lcv );
         bool addAssignment( Vertex *vertex, Var variable );
         bool getTriedAssignments( Vertex* vertex, vector < Var >* tried );
-        void quicksort( vector< Vertex > &vertices, unsigned int p, unsigned int q );
-        int partition( vector< Vertex > &vertices, unsigned int p, unsigned int q);
+        void quicksort( vector< Vertex >& vertices, unsigned int p, unsigned int q );
+        int partition( vector< Vertex >& vertices, unsigned int p, unsigned int q);
 };
 
 #endif

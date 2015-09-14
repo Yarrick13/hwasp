@@ -200,7 +200,8 @@ WaspFacade::setDecisionPolicy(
         
         case HEURISTIC_PUP:
         	{
-			CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+        		cout << "pup" << endl;
+			CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
 			cbin->addHeuristic( "pup" );
 			solver.setHeuristic( cbin );
 			}
@@ -208,7 +209,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_COLOURING:
         	{
-			CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+			CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
 			cbin->addHeuristic( "colouring" );
 			solver.setHeuristic( cbin );
 			}
@@ -216,7 +217,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_BINPACKING:
         	{
-        	CombinedHeuristic* cbin = new CombinedHeuristic( solver );
+        	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
         	cbin->addHeuristic( "binpacking" );
         	solver.setHeuristic( cbin );
         	}
@@ -224,7 +225,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_COMBINED:
         	{
-				CombinedHeuristic* combined = new CombinedHeuristic( solver );
+				CombinedHeuristic* combined = new CombinedHeuristic( solver, true, 100 );
 				bool found = true;
 
 				vector< string > heuristics;

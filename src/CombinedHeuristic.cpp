@@ -24,7 +24,9 @@
 #include "util/HeuristicUtil.h"
 
 CombinedHeuristic::CombinedHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 )
+    Solver& s,
+	bool useTreshold,
+	unsigned int treshold ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold )
 {
 	minisat = new MinisatHeuristic( s );
 }
@@ -113,7 +115,7 @@ CombinedHeuristic::makeAChoiceProtected(
 {
 	Literal lit = Literal::null;
 
-	if ( index < heuristics.size( ) && getTresholdStatistics( ) >= 100 )
+	if ( useTh && getTresholdStatistics( ) >= th )
 		index++;
 
 	while ( lit == Literal::null && index < heuristics.size( ) )

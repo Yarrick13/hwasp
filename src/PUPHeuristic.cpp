@@ -327,7 +327,7 @@ PUPHeuristic::resetHeuristic (
 	assignments.clear( );
 	index = 0;
 
-	solver.unrollToZero( );
+	unrollHeuristic( );
 	solver.clearConflictStatus( );
 
 	return createOrder( );
@@ -566,7 +566,7 @@ PUPHeuristic::isPartnerUsed(
 bool
 PUPHeuristic::getUntriedPu(
 	Pu* pu,
-	vector < Var > tried )
+	const vector < Var >& tried )
 {
 	bool found = false;
 
@@ -655,7 +655,7 @@ PUPHeuristic::makeAChoiceProtected( )
 	{
 		if ( !isConsitent )
 		{
-			cout << "lit null" << endl;
+			trace_msg( heuristic, 4, "Heuristic can not find a solution" );
 			return Literal::null;
 		}
 
@@ -919,7 +919,7 @@ PUPHeuristic::onFinishedSolving(
 		{
 			if ( solver.getTruthValue( za->positive ) == TRUE )
 			{
-				cout << "add " << za->positive << " " << VariableNames::getName( za->positive ) << endl;
+				//cout << "add " << za->positive << " " << VariableNames::getName( za->positive ) << endl;
 				l.push_back( Literal( za->positive, NEGATIVE ) );
 			}
 		}
