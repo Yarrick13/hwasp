@@ -44,6 +44,7 @@ class Heuristic
         virtual unsigned int getTreshold( ) = 0;
         virtual void onFinishedSolving( ) = 0;
         virtual bool isInputCorrect( ) = 0;
+        virtual bool isCoherent( ) = 0;
         inline void addPreferredChoice( Literal lit ){ assert( lit != Literal::null ); preferredChoices.push_back( lit ); }
         inline void removePrefChoices( ) { preferredChoices.clear(); }
         void unrollHeuristic ( );

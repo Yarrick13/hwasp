@@ -39,6 +39,7 @@ class CombinedHeuristic : public Heuristic
         unsigned int getTreshold( );
         void onFinishedSolving( );
         bool isInputCorrect( );
+        bool isCoherent( ) { return true; };
 
         void addHeuristic( Heuristic* h );
         bool addHeuristic( string h );

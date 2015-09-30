@@ -38,6 +38,7 @@ class ColouringHeuristic : public Heuristic
         unsigned int getTreshold( ){ return numberOfConflicts; };
         void onFinishedSolving( ) { };
         bool isInputCorrect( ) { return inputCorrect; };
+        bool isCoherent( ) { return coherent; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -48,6 +49,7 @@ class ColouringHeuristic : public Heuristic
         unsigned int numberOfConflicts;
         bool conflictOccured;
         bool inputCorrect;
+        bool coherent;
 
         unsigned int choice;
 

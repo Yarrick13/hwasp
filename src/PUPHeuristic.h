@@ -61,6 +61,7 @@ class PUPHeuristic : public Heuristic
         unsigned int getTreshold( ){ return numberOfConflicts; };
         void onFinishedSolving( );
         bool isInputCorrect( ) { return inputCorrect; };
+        bool isCoherent( ) { return coherent; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -71,7 +72,7 @@ class PUPHeuristic : public Heuristic
 		unsigned int maxPu;						// maximum number of partner units per unit
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit
 		unsigned int numberOfConflicts;
-		bool isConsitent;
+		bool coherent;
 		bool conflictOccured;
 		bool conflictHandled;
 		unsigned int assignedSinceConflict;
@@ -155,7 +156,6 @@ class PUPHeuristic : public Heuristic
 
 		vector < Node* > order;					// current node order
 		vector < Assignment > assignments;		// current assignments done by the heuristic
-		vector < Var > undefined;
 
 		void initRelation ( );
 		bool resetHeuristic ( );

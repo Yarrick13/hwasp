@@ -54,6 +54,7 @@ class MinisatHeuristic : public Heuristic
         unsigned int getTreshold( ){ return 0; };
         void onFinishedSolving( ) { };
         bool isInputCorrect( ) { return true; };
+        bool isCoherent( ) { return true; };
         
     protected:
         virtual Literal makeAChoiceProtected();

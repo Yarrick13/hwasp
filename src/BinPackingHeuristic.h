@@ -37,6 +37,7 @@ class BinPackingHeuristic : public Heuristic
         unsigned int getTreshold( ){ return numberOfConflicts; }
         void onFinishedSolving( ) { };
         bool isInputCorrect( ) { return inputCorrect; };
+        bool isCoherent( ) { return coherent; };
 
     protected:
         Literal makeAChoiceProtected();
@@ -46,7 +47,7 @@ class BinPackingHeuristic : public Heuristic
         unsigned int numberOfBins;
         unsigned int maxBinSize;
         unsigned int numberOfConflicts;
-        bool isConsistent;
+        bool coherent;
         bool conflictOccured;			// true after conflict, otherwise false
         bool inputCorrect;
 

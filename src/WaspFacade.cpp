@@ -200,8 +200,7 @@ WaspFacade::setDecisionPolicy(
         
         case HEURISTIC_PUP:
         	{
-        		cout << "pup" << endl;
-			CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+        	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
 			cbin->addHeuristic( "pup" );
 			solver.setHeuristic( cbin );
 			}

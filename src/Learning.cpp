@@ -606,8 +606,6 @@ Learning::analyzeFinal(
         Reason* reason = solver.getImplicant( nextVar );
         if( reason == NULL )
         {
-//        	if ( !solver.isAssumption( nextVar ) )
-//        		cout << "problem with " << VariableNames::getName( nextVar ) << endl;
         	assert( solver.isAssumption( nextVar ) );
             assert( solver.getDecisionLevel( nextVar ) > 0 );
             trace_msg( weakconstraints, 4, "it was a choice: added" );

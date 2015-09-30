@@ -31,7 +31,7 @@
 #include "util/HeuristicUtil.h"
 
 ColouringHeuristic::ColouringHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), numberOfConflicts( 0 ), conflictOccured( false ), inputCorrect( true ), choice( 0 )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfColours( 0 ), numberOfConflicts( 0 ), conflictOccured( false ), inputCorrect( true ), coherent( true ), choice( 0 )
 {
 }
 
@@ -403,17 +403,8 @@ ColouringHeuristic::makeAChoiceProtected( )
 
 	do
 	{
-//		cout << endl << "assignments" << endl;
-//		for ( unsigned int i = 0; i < vertices.size( ); i++ )
-//		{
-//			if ( vertices[ i ].current != 0 )
-//				cout << i << ": " << VariableNames::getName( vertices[ i ].current ) << " is " <<
-//						solver.getTruthValue( vertices[ i ].current ) << endl;
-//		}
-//		cout << endl;
-
 		if ( index >= order.size( ) )
-			assert ( 0 && "assert index" );
+			return Literal::null;
 
 		if ( conflictOccured )
 		{
@@ -516,6 +507,7 @@ ColouringHeuristic::makeAChoiceProtected( )
 			else
 			{
 				trace_msg( heuristic, 3, "Graph can not be coloured" );
+				coherent = false;
 				return Literal::null;
 			}
 		}

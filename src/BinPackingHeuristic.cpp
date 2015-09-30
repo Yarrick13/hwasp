@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 BinPackingHeuristic::BinPackingHeuristic(
-    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), numberOfConflicts( 0 ), isConsistent( true ), conflictOccured( false ), inputCorrect( true )
+    Solver& s ) : Heuristic( s ), index( 0 ), numberOfBins( 0 ), maxBinSize( 0 ), numberOfConflicts( 0 ), coherent( true ), conflictOccured( false ), inputCorrect( true )
 {
 }
 
@@ -249,7 +249,7 @@ BinPackingHeuristic::onFinishedParsing (
 		if ( !isPackingPossible( ) )
 		{
 			trace_msg( heuristic, 2, "Not enough space in all bins for all vertices!");
-			isConsistent = false;
+			coherent = false;
 		}
 		else
 		{
@@ -289,7 +289,7 @@ BinPackingHeuristic::makeAChoiceProtected(
 	Item* current;
 	bool found = false;
 
-	if ( !isConsistent )
+	if ( !coherent )
 		return Literal::null;
 
 	// reset index to the first assignment with truth value not TRUE in case of error
@@ -329,6 +329,12 @@ BinPackingHeuristic::makeAChoiceProtected(
 	do
 	{
 		chosenVariable = 0;
+
+		if ( index >= items.size( ) )
+		{
+			trace_msg( heuristic, 4, "Binpacking heuristic found solution but wasp did not recognized it - fall back to Minisat heuristic" );
+			return Literal::null;
+		}
 
 		do
 		{
@@ -396,6 +402,7 @@ BinPackingHeuristic::makeAChoiceProtected(
 			else
 			{
 				trace_msg( heuristic, 3, "Bin packing not possible!" );
+				coherent = false;
 				return Literal::null;
 			}
 		}

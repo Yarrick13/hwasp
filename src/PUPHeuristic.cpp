@@ -30,7 +30,7 @@
 #include "util/HeuristicUtil.h"
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
-    Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), isConsitent( true ), conflictOccured( false ),
+    Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), coherent( true ), conflictOccured( false ),
 	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), inputCorrect( true ), solutionFound( false ),
 	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 )
 { }
@@ -200,9 +200,9 @@ PUPHeuristic::onFinishedParsing (
 		initRelation( );
 
 		if ( zones.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) || sensors.size( ) > ( partnerUnits.size( ) * maxElementsOnPu ) )
-			isConsitent = false;
+			coherent = false;
 		else
-			isConsitent = resetHeuristic( );
+			coherent = resetHeuristic( );
 
 		trace_msg( heuristic, 1, "Start heuristic" );
 	}
@@ -623,11 +623,12 @@ PUPHeuristic::makeAChoiceProtected( )
 	if ( solutionFound )
 	{
 		trace_msg( heuristic, 3, "Look for another solution - reset heuristic" );
+		//cout << "Look for another solution - reset heuristic" << endl;
 
 		startAt = 0;
 		index = 0;
 		numberOfConflicts = 0;
-		isConsitent = true;
+		coherent = true;
 		conflictOccured = false;
 		conflictHandled = true;
 		assignedSinceConflict = 0;
@@ -653,9 +654,10 @@ PUPHeuristic::makeAChoiceProtected( )
 
 	do
 	{
-		if ( !isConsitent )
+		if ( !coherent )
 		{
 			trace_msg( heuristic, 4, "Heuristic can not find a solution" );
+			//cout << "Heuristic can not find a solution" << endl;
 			return Literal::null;
 		}
 
@@ -669,19 +671,12 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( index >= order.size( ) )
 			{
 				trace_msg( heuristic, 3, "All zones/sensors considered but no solution found - check assignments" );
+				//cout << "All zones/sensors considered but no solution found - check assignments" << endl;
 				sNumberOfOrderMaxReached++;
 
-				// all assignments are TRUE but something is UNDEFINED - set all UNDEFINED to FALSE
-				if ( undefined.size( ) > 0 )
-				{
-					for ( unsigned int i = 0; i < undefined.size( ); i++ )
-					{
-						if ( solver.getTruthValue( undefined[ i ] ) == UNDEFINED )
-							return Literal( undefined[ i ], NEGATIVE );
-					}
-
-					assert ( "Solution found" );
-				}
+//				cout << "assignments for " << zones.size( ) << " zones and " << sensors.size( ) << " sensors" << endl;
+//				for ( unsigned int i = 0; i < assignments.size( ); i++ )
+//					cout << "\t" << i << ": " << VariableNames::getName( assignments[ i ].variable ) << " is " << solver.getTruthValue( assignments[ i ].variable ) << endl;
 
 				// check if all assignments are true
 				// if one is FALSE raise conflict
@@ -705,22 +700,14 @@ PUPHeuristic::makeAChoiceProtected( )
 					}
 				}
 
-				// if all assignments are TRUE, get all that are UNDEFINED
 				if ( allTrue )
 				{
-					for ( unsigned int i = 0; i < unit2zone.size( ); i++ )
-					{
-						if ( solver.isUndefined( unit2zone[ i ].positive) )
-							undefined.push_back( unit2zone[ i ].positive );
-					}
-
-					for ( unsigned int i = 0; i < unit2sensor.size( ); i++ )
-					{
-						if ( solver.isUndefined( unit2sensor[ i ].positive ) )
-							undefined.push_back( unit2sensor[ i ].positive );
-					}
-
-					return Literal( undefined[ 0 ], NEGATIVE );
+					trace_msg( heuristic, 4, "PuP heuristic found solution but wasp did not recognized it - fall back to Minisat heuristic" );
+					return Literal::null;
+				}
+				else
+				{
+					trace_msg( heuristic, 4, "solution not correct - reset" );
 				}
 			}
 
@@ -739,6 +726,7 @@ PUPHeuristic::makeAChoiceProtected( )
 							found = true;
 							index = pos;
 							trace_msg( heuristic, 4, "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict" );
+							//cout << "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict"  << endl;
 						}
 						else
 							pos++;
@@ -787,7 +775,11 @@ PUPHeuristic::makeAChoiceProtected( )
 
 					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
 							                         << za->positive << " " << Literal(za->positive, POSITIVE)
-							                         << " -> continue with next zone/sensor");
+							                         << " -> continue with next zone/sensor" );
+
+//					cout << "Node " << current->name << " is already assigned with "
+//	                         << za->positive << " " << Literal(za->positive, POSITIVE)
+//	                         << " -> continue with next zone/sensor" << endl;
 
 					getPu( za->positive, &pu );
 					searchAndAddAssignment( za->positive, pu );
@@ -821,11 +813,13 @@ PUPHeuristic::makeAChoiceProtected( )
 		// chosen variable is zero if all possible partner unit has been tried
 		if ( chosenVariable == 0 )
 		{
-			trace_msg( heuristic, 3, "Chosen variable is zero"  );
+			trace_msg( heuristic, 3, "Chosen variable is zero" );
+			//cout << "Chosen variable is zero" << endl;
 
 			if ( index > 1 )
 			{
-				trace_msg( heuristic, 3, "No more possibilities to place this zone/sensor -> go one step back"  );
+				trace_msg( heuristic, 3, "No more possibilities to place this zone/sensor -> go one step back" );
+				//cout << "No more possibilities to place this zone/sensor -> go one step back" << endl;
 				index -= 2;		// -2 because the index has already been incremented
 
 				while ( solver.getTruthValue( assignments[ index ].variable ) != UNDEFINED )
@@ -838,22 +832,26 @@ PUPHeuristic::makeAChoiceProtected( )
 			}
 			else
 			{
-				trace_msg( heuristic, 3, "No solution for current order -> create new one" );
-				isConsitent = resetHeuristic( );
+				trace_msg( heuristic, 3, "No solution for current order -> create new order" );
+				//cout << "No solution for current order -> create new order" << endl;
+				coherent = resetHeuristic( );
 			}
 		}
 		else
 		{
 			trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) );
+			//cout << "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << endl;
 
 			if ( solver.getTruthValue( chosenVariable ) == FALSE )
 			{
 				trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
+				//cout << "Chosen variable is already set to FALSE - try another assignment" << endl;
 				index--;
 			}
 			if ( solver.getTruthValue( chosenVariable ) == TRUE )
 			{
 				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next zone/sensor" );
+				//cout << "Chosen variable is already set to TRUE - continue with next zone/sensor" << endl;
 			}
 		}
 	}
@@ -968,7 +966,7 @@ PUPHeuristic::minimize(
 		{
 			Pu* unit1 = 0;
 			Pu* unit2 = 0;
-			for ( unsigned int i = 0; i < partnerUnits.size( ) && !found < 2; i++ )
+			for ( unsigned int i = 0; i < partnerUnits.size( ) && found < 2; i++ )
 			{
 				if ( puc.unit1 == partnerUnits[ i ].name && unit1 == 0 )
 				{
