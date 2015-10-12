@@ -201,6 +201,7 @@ WaspFacade::setDecisionPolicy(
         case HEURISTIC_PUP:
         	{
         	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+        	cbin->addHeuristic( "pup" );
 			solver.setHeuristic( cbin );
 			}
             break;
@@ -208,6 +209,7 @@ WaspFacade::setDecisionPolicy(
         case HEURISTIC_COLOURING:
         	{
 			CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+			cbin->addHeuristic( "colouring" );
 			solver.setHeuristic( cbin );
 			}
         	break;
@@ -215,6 +217,7 @@ WaspFacade::setDecisionPolicy(
         case HEURISTIC_BINPACKING:
         	{
         	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+        	cbin->addHeuristic( "binpacking" );
         	solver.setHeuristic( cbin );
         	}
         	break;

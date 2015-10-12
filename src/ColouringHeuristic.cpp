@@ -516,9 +516,13 @@ ColouringHeuristic::makeAChoiceProtected( )
 			trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) );
 
 			if ( solver.getTruthValue( chosenVariable ) == FALSE )
+			{
 				trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
+			}
 			if ( solver.getTruthValue( chosenVariable ) == TRUE )
+			{
 				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next vertex" );
+			}
 		}
 	}
 	while( chosenVariable == 0 || !solver.isUndefined( chosenVariable ) );

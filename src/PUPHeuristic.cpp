@@ -485,13 +485,11 @@ PUPHeuristic::searchAndAddAssignment(
 /*
  * gets all tried partner units from the given node
  *
- * @param node	the node ( zone or sensor )
- * @param trie	the units tried by this node ( out )
+ * @param tried	the units tried by the current node ( out )
  * @return		true if there are tried units or false otherwise
  */
 bool
 PUPHeuristic::getTriedAssignments(
-	Node* node,
 	vector < Var >* tried )
 {
 	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
@@ -793,7 +791,7 @@ PUPHeuristic::makeAChoiceProtected( )
 		vector < Var > tried;
 
 		// get unused partner unit first
-		if ( !getTriedAssignments( current, &tried ) )
+		if ( !getTriedAssignments( &tried ) )
 		{
 			if ( getUnusedPu( &pu ) )
 			{

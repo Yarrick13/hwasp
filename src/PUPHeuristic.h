@@ -168,7 +168,7 @@ class PUPHeuristic : public Heuristic
 		Var getVariable ( Pu *unit, Node *node );
 
 		bool searchAndAddAssignment( Var variable, Pu pu );
-		bool getTriedAssignments( Node* node, vector < Var >* tried );
+		bool getTriedAssignments( vector < Var >* tried );
 		bool getUnusedPu( Pu* pu );
 		bool isPartnerUsed( Pu pu );
 		bool getUntriedPu( Pu* pu, const vector < Var >& tried );
