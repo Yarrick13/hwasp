@@ -85,6 +85,7 @@ class PUPHeuristic : public Heuristic
 		unsigned int sNumberOfOrdersCreated;
 		unsigned int sNumberOfRecommendations;
 		unsigned int sNumberOfOrderMaxReached;
+		unsigned int sFallback;
 
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment

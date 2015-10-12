@@ -32,7 +32,7 @@
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), coherent( true ), conflictOccured( false ),
 	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), inputCorrect( true ), solutionFound( false ),
-	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 )
+	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 ), sFallback( 0 )
 { }
 
 /*
@@ -657,6 +657,7 @@ PUPHeuristic::makeAChoiceProtected( )
 		if ( !coherent )
 		{
 			trace_msg( heuristic, 4, "Heuristic can not find a solution" );
+			sFallback = 2;
 			//cout << "Heuristic can not find a solution" << endl;
 			return Literal::null;
 		}
@@ -703,6 +704,7 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( allTrue )
 				{
 					trace_msg( heuristic, 4, "PuP heuristic found solution but wasp did not recognized it - fall back to Minisat heuristic" );
+					sFallback = 1;
 					return Literal::null;
 				}
 				else
@@ -1087,4 +1089,11 @@ PUPHeuristic::printStatistics(
 	cout << partnerUnits.size( ) << " partnerunits were specified" << endl;
 	cout << partnerUnitsUsed << " partnerunits were used" << endl;
 	cout << sNumberOfOrderMaxReached << " times the last element in the order was handled without finding a solution (current solution was checked)" << endl;
+	cout << "fallback to minisat: ";
+	if ( sFallback == 0 )
+		cout << "no" << endl;
+	else if ( sFallback == 1 )
+		cout << "yes (to finalize solution)" << endl;
+	else
+		cout << "yes (no solution found)" << endl;
 }
