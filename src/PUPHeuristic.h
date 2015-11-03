@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 
 #define U2Z 1
 #define U2S 2
@@ -81,18 +82,22 @@ class PUPHeuristic : public Heuristic
 		bool solutionFound;
 
 		unsigned int sNumberOfConflicts;
-		unsigned int sNumberOfBacktracks;
 		unsigned int sNumberOfOrdersCreated;
 		unsigned int sNumberOfRecommendations;
 		unsigned int sNumberOfOrderMaxReached;
 		unsigned int sFallback;
+		double sAlreadyFalse;
+		double sAlreadyTrue;
+
+		std::chrono::duration<double> pre;
+		std::chrono::duration<double> dec;
 
 		// represents a zone to sensor connection ( positive and negative variable )
 		struct ZoneAssignment
 		{
 			string pu;
 			string to;
-			Var positive;
+			Var var;
 			unsigned int type;
 		};
 
@@ -104,6 +109,7 @@ class PUPHeuristic : public Heuristic
 			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
 			unsigned int type;					// ZONE or SENSOR
 			unsigned int considered;
+			unsigned int ignore;
 
 			vector < ZoneAssignment* > usedIn;
 		};
@@ -134,14 +140,14 @@ class PUPHeuristic : public Heuristic
 		// represents an assignment done by the heuristic
 		struct Assignment
 		{
-			Var variable;
+			Var var;
 			Pu currentPu;
 			vector < Var > triedUnits;
 		};
 
 		struct PartnerUnitConnection
 		{
-			Var variable;
+			Var var;
 			string unit1;
 			string unit2;
 		};

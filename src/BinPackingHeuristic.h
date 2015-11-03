@@ -35,7 +35,7 @@ class BinPackingHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero(){ };
         void conflictOccurred(){ conflictOccured = true; }
         unsigned int getTreshold( ){ return numberOfConflicts; }
-        void onFinishedSolving( ) { };
+        void onFinishedSolving( );
         bool isInputCorrect( ) { return inputCorrect; };
         bool isCoherent( ) { return coherent; };
 

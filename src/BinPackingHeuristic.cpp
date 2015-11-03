@@ -478,3 +478,26 @@ BinPackingHeuristic::partition(
     swap ( items[ i ], items[ p ] );
     return i;
 }
+
+void
+BinPackingHeuristic::onFinishedSolving(
+	)
+{
+	bool found;
+	unsigned int usedBins = 0;
+
+	for ( Bin* bin : bins )
+	{
+		found = false;
+		for ( unsigned int i = 0; i < bin->usedIn.size( ) && !found; i++ )
+		{
+			if ( solver.getTruthValue( bin->usedIn[ i ]->variable ) == TRUE )
+				found = true;
+		}
+
+		if ( found )
+			usedBins++;
+	}
+
+	cout << bins.size( ) << " bins specified; " << usedBins << " bins used in solution" << endl;
+}

@@ -32,7 +32,8 @@
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), coherent( true ), conflictOccured( false ),
 	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), inputCorrect( true ), solutionFound( false ),
-	sNumberOfConflicts( 0 ), sNumberOfBacktracks( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 ), sFallback( 0 )
+	sNumberOfConflicts( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 ), sFallback( 0 ),
+	sAlreadyFalse( 0 ), sAlreadyTrue( 0 ), pre( 0 ), dec( 0 )
 { }
 
 /*
@@ -55,12 +56,12 @@ PUPHeuristic::processVariable (
 		string tmp;
 		string tmp2;
 
-		if( name.compare( 0, 5, "zone(" ) == 0 )
+		if( name.compare( 0, 6, "elem(z" ) == 0 )
 		{
-			HeuristicUtil::getName( name, &tmp );
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 			Node zone;
-			zone.name = tmp;
+			zone.name = tmp2;
 			zone.var = v;
 			zone.considered = 0;
 			zone.type = ZONE;
@@ -69,12 +70,12 @@ PUPHeuristic::processVariable (
 
 			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone )" );
 		}
-		else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
+		else if( name.compare( 0, 6, "elem(d" ) == 0 )
 		{
-			HeuristicUtil::getName( name, &tmp );
+			HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 			Node sensor;
-			sensor.name = tmp;
+			sensor.name = tmp2;
 			sensor.var = v;
 			sensor.considered = 0;
 			sensor.type = SENSOR;
@@ -120,7 +121,7 @@ PUPHeuristic::processVariable (
 			ZoneAssignment za;
 			za.pu = tmp;
 			za.to = tmp2;
-			za.positive = v;
+			za.var = v;
 			za.type = ZONE;
 
 			initUnitAssignments( za, U2Z );
@@ -134,7 +135,7 @@ PUPHeuristic::processVariable (
 			ZoneAssignment za;
 			za.pu = tmp;
 			za.to = tmp2;
-			za.positive = v;
+			za.var = v;
 			za.type = SENSOR;
 
 			initUnitAssignments( za, U2S );
@@ -162,7 +163,7 @@ PUPHeuristic::processVariable (
 			HeuristicUtil::getName( name, &tmp, &tmp2 );
 
 			PartnerUnitConnection puc;
-			puc.variable = v;
+			puc.var = v;
 			puc.unit1 = tmp;
 			puc.unit2 = tmp2;
 
@@ -184,6 +185,8 @@ void
 PUPHeuristic::onFinishedParsing (
 	)
 {
+	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
 	trace_msg( heuristic, 1, "Initializing QuickPuP heuristic" );
 	trace_msg( heuristic, 2, "Start processing variables" );
 
@@ -206,6 +209,10 @@ PUPHeuristic::onFinishedParsing (
 
 		trace_msg( heuristic, 1, "Start heuristic" );
 	}
+
+	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+	pre += time_span;
 }
 
 bool
@@ -215,7 +222,7 @@ PUPHeuristic::checkInput(
 	if ( inputCorrect == false )
 		return false;
 
-	if ( zones.size( ) == 0 || sensors.size( ) == 0 || unit2zone.size( ) == 0 || unit2zone.size( ) == 0 || unit2sensor.size( ) == 0 ||
+	if ( zones.size( ) == 0 || sensors.size( ) == 0 || unit2zone.size( ) == 0 || unit2sensor.size( ) == 0 ||
 			partnerUnits.size( ) == 0 || partnerUnitConnections.size( ) == 0 )
 		return false;
 
@@ -354,7 +361,7 @@ PUPHeuristic::initUnitAssignments(
 		{
 			if ( unit2zone[ i ].pu == za.pu && unit2zone[ i ].to == za.to )
 			{
-				unit2zone[ i ].positive = za.positive;
+				unit2zone[ i ].var = za.var;
 				found = true;
 			}
 		}
@@ -365,7 +372,7 @@ PUPHeuristic::initUnitAssignments(
 		{
 			if ( unit2sensor[ i ].pu == za.pu && unit2sensor[ i ].to == za.to )
 			{
-				unit2sensor[ i ].positive = za.positive;
+				unit2sensor[ i ].var = za.var;
 				found = true;
 			}
 		}
@@ -406,7 +413,7 @@ PUPHeuristic::createOrder (
 	(*next).considered = newConsidered;
 	order.push_back( next );
 
-	string orderOutput = (*next).name + ", ";
+	string orderOutput = (*next).name + ( ( next->type == ZONE ) ? " ( zone )" : " ( sensor )" ) + ", ";
 
 	while ( order.size( ) < maxSize )
 	{
@@ -422,8 +429,15 @@ PUPHeuristic::createOrder (
 			{
 				(*child).considered = newConsidered;
 				order.push_back( child );
-				orderOutput += (*child).name + ", ";
+				orderOutput += (*child).name + ( ( child->type == ZONE ) ? " ( zone )" : " ( sensor )" ) + ", ";
 			}
+		}
+
+		next->ignore = false;
+		for ( unsigned int i = 0; i < next->usedIn.size( ) && !next->ignore; i++ )
+		{
+			if ( solver.getTruthValue( next->usedIn[ i ]->var ) == TRUE )
+				next->ignore = true;
 		}
 
 		if ( nextNode >= order.size( ) )
@@ -460,7 +474,7 @@ PUPHeuristic::searchAndAddAssignment(
 
 	if ( current < assignments.size( ) )
 	{
-		assignments[ current ].variable = variable;
+		assignments[ current ].var = variable;
 		assignments[ current ].currentPu = pu;
 
 		if ( std::find( assignments[ current ].triedUnits.begin( ), assignments[ current ].triedUnits.end( ), pu.var ) == assignments[ current ].triedUnits.end( ) )
@@ -472,7 +486,7 @@ PUPHeuristic::searchAndAddAssignment(
 	{
 		Assignment a;
 
-		a.variable = variable;
+		a.var = variable;
 		a.currentPu = pu;
 		a.triedUnits.push_back( pu.var );
 
@@ -521,7 +535,7 @@ PUPHeuristic::getUnusedPu(
 
 		for ( unsigned int j = 0; j < partnerUnits[ i ].usedIn.size( ) && !used; j++ )
 		{
-			if ( solver.getTruthValue( partnerUnits[ i ].usedIn[ j ]->positive ) == TRUE )
+			if ( solver.getTruthValue( partnerUnits[ i ].usedIn[ j ]->var ) == TRUE )
 				used = true;
 		}
 
@@ -548,7 +562,7 @@ PUPHeuristic::isPartnerUsed(
 
 	for ( unsigned int i = 0; i < pu.usedIn.size( ) && !found; i++ )
 	{
-		if ( solver.getTruthValue( pu.usedIn[ i ]->positive ) == TRUE )
+		if ( solver.getTruthValue( pu.usedIn[ i ]->var ) == TRUE )
 			found = true;
 	}
 
@@ -606,6 +620,8 @@ PUPHeuristic::getPu(
 Literal
 PUPHeuristic::makeAChoiceProtected( )
 {
+	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
 	Pu pu;
 	Node* current;
 	Var chosenVariable;
@@ -634,7 +650,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		inputCorrect = false;
 		solutionFound = false;
 		sNumberOfConflicts = 0;
-		sNumberOfBacktracks = 0;
 		sNumberOfOrdersCreated = 0;
 		sNumberOfRecommendations = 0;
 		sNumberOfOrderMaxReached = 0;
@@ -669,6 +684,10 @@ PUPHeuristic::makeAChoiceProtected( )
 			// solution should already be found at this point - check assignments
 			if ( index >= order.size( ) )
 			{
+//				cout << "reached with order size " << order.size( ) << endl;
+//				for ( Assignment a : assignments )
+//					cout << "\t" << VariableNames::getName( a.var ) << " ( " << a.var << " ) is " << solver.getTruthValue( a.var ) << endl;
+
 				trace_msg( heuristic, 3, "All zones/sensors considered but no solution found - check assignments" );
 				//cout << "All zones/sensors considered but no solution found - check assignments" << endl;
 				sNumberOfOrderMaxReached++;
@@ -683,13 +702,13 @@ PUPHeuristic::makeAChoiceProtected( )
 				bool allTrue = true;
 				for ( unsigned int i = 0; i < assignments.size( ) && allTrue; i++ )
 				{
-					if ( solver.getTruthValue( assignments[ i ].variable ) == FALSE )
+					if ( solver.getTruthValue( assignments[ i ].var ) == FALSE )
 					{
 						allTrue = false;
 						conflictOccured = true;
 						conflictHandled = false;
 					}
-					if ( solver.getTruthValue( assignments[ i ].variable ) == UNDEFINED )
+					if ( solver.getTruthValue( assignments[ i ].var ) == UNDEFINED )
 					{
 						allTrue = false;
 						index = i;
@@ -721,7 +740,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 					while ( pos < assignments.size( ) && !found )
 					{
-						if ( solver.getTruthValue( assignments[ pos ].variable ) == FALSE )
+						if ( solver.getTruthValue( assignments[ pos ].var ) == FALSE )
 						{
 							found = true;
 							index = pos;
@@ -748,11 +767,11 @@ PUPHeuristic::makeAChoiceProtected( )
 
 			// redo all UNDEFINED up to the current assignemnt
 			// after the current zone/sensor has been assigned (otherwise the same conflict can occur again)
-			if ( redoAfterConflict && assignedSinceConflict > 0 )
+			if ( redoAfterConflict  && assignedSinceConflict > 0 )
 			{
 				for ( unsigned int i = 0; i < assignments.size( ); i++ )
 				{
-					chosenVariable = assignments[ i ].variable;
+					chosenVariable = assignments[ i ].var;
 
 					if ( solver.isUndefined( chosenVariable ) )
 						return Literal( chosenVariable, POSITIVE );
@@ -763,26 +782,46 @@ PUPHeuristic::makeAChoiceProtected( )
 			}
 
 			// make a choice
-			current = order[ index++ ];
+			do
+			{
+				current = order[ index++ ];
+				trace_msg( heuristic, 2, "Consider " << ( ( current->type == ZONE ) ? "zone " : "sensor " ) << current->name  );
+
+				if ( current->ignore )
+				{
+					bool search = true;
+					for ( unsigned int i = 0; i < current->usedIn.size( ) && search; i++ )
+					{
+						if ( solver.getTruthValue( current->usedIn[ i ]->var ) == TRUE )
+						{
+							search = true;
+							searchAndAddAssignment( current->usedIn[ i ]->var, partnerUnits[ 0 ] );
+						}
+					}
+
+					trace_msg( heuristic, 3, "This zone/sensor will be ignored - get next one" );
+				}
+			}
+			while ( current->ignore );
 
 			// check if the current node is already assigned - take next if so
 			for ( unsigned int i = 0; i < current->usedIn.size( ) && !found; i++ )
 			{
 				ZoneAssignment* za = current->usedIn[ i ];
-				if ( solver.getTruthValue( za->positive ) == TRUE )
+				if ( solver.getTruthValue( za->var ) == TRUE )
 				{
 					found = true;
 
 					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
-							                         << za->positive << " " << Literal(za->positive, POSITIVE)
+							                         << za->var << " " << Literal(za->var, POSITIVE)
 							                         << " -> continue with next zone/sensor" );
 
 //					cout << "Node " << current->name << " is already assigned with "
 //	                         << za->positive << " " << Literal(za->positive, POSITIVE)
 //	                         << " -> continue with next zone/sensor" << endl;
 
-					getPu( za->positive, &pu );
-					searchAndAddAssignment( za->positive, pu );
+					getPu( za->var, &pu );
+					searchAndAddAssignment( za->var, pu );
 				}
 			}
 		}
@@ -818,17 +857,19 @@ PUPHeuristic::makeAChoiceProtected( )
 
 			if ( index > 1 )
 			{
-				trace_msg( heuristic, 3, "No more possibilities to place this zone/sensor -> go one step back" );
-				//cout << "No more possibilities to place this zone/sensor -> go one step back" << endl;
-				index -= 2;		// -2 because the index has already been incremented
+				assert( 0 && "IMPLEMENT ME! (backtrack?!)" );
 
-				while ( solver.getTruthValue( assignments[ index ].variable ) != UNDEFINED )
-					solver.unrollOne( );
-
-				assignments.pop_back( );
-
-				conflictOccured = true;
-				sNumberOfBacktracks++;
+//				trace_msg( heuristic, 3, "No more possibilities to place this zone/sensor -> go one step back" );
+//				//cout << "No more possibilities to place this zone/sensor -> go one step back" << endl;
+//				index -= 2;		// -2 because the index has already been incremented
+//
+//				while ( solver.getTruthValue( assignments[ index ].variable ) != UNDEFINED )
+//					solver.unrollOne( );
+//
+//				assignments.pop_back( );
+//
+//				conflictOccured = true;
+//				sNumberOfBacktracks++;
 			}
 			else
 			{
@@ -847,15 +888,21 @@ PUPHeuristic::makeAChoiceProtected( )
 				trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
 				//cout << "Chosen variable is already set to FALSE - try another assignment" << endl;
 				index--;
+				sAlreadyFalse++;
 			}
 			if ( solver.getTruthValue( chosenVariable ) == TRUE )
 			{
 				trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next zone/sensor" );
 				//cout << "Chosen variable is already set to TRUE - continue with next zone/sensor" << endl;
+				sAlreadyTrue++;
 			}
 		}
 	}
 	while( chosenVariable == 0 || !solver.isUndefined( chosenVariable ) );
+
+	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+	dec += time_span;
 
 	assignedSinceConflict++;
 	sNumberOfRecommendations++;
@@ -883,7 +930,7 @@ PUPHeuristic::getVariable (
 		if ( za[ i ]->pu == unit->name )
 		{
 			found = true;
-			var = za[ i ]->positive;
+			var = za[ i ]->var;
 		}
 	}
 
@@ -908,21 +955,21 @@ PUPHeuristic::onFinishedSolving(
 	solutionFound = true;
 	printStatistics( );
 
-
-	trace_msg( heuristic, 2, "Adding constraint to avoid previous solution" );
-	vector< Literal > l;
-	for ( Pu pu : partnerUnits )
-	{
-		for ( ZoneAssignment* za : pu.usedIn)
-		{
-			if ( solver.getTruthValue( za->positive ) == TRUE )
-			{
-				//cout << "add " << za->positive << " " << VariableNames::getName( za->positive ) << endl;
-				l.push_back( Literal( za->positive, NEGATIVE ) );
-			}
-		}
-	}
-	addClause( l );
+//	with new encoding -> something is not undefined...
+//	trace_msg( heuristic, 2, "Adding constraint to avoid previous solution" );
+//	vector< Literal > l;
+//	for ( Pu pu : partnerUnits )
+//	{
+//		for ( ZoneAssignment* za : pu.usedIn)
+//		{
+//			if ( solver.getTruthValue( za->positive ) == TRUE )
+//			{
+//				//cout << "add " << za->positive << " " << VariableNames::getName( za->positive ) << endl;
+//				l.push_back( Literal( za->positive, NEGATIVE ) );
+//			}
+//		}
+//	}
+//	addClause( l );
 
 //	vector < Var > trueInAS;
 //	vector < Var > falseInAS;
@@ -962,7 +1009,7 @@ PUPHeuristic::minimize(
 	{
 		found = 0;
 
-		if ( solver.getTruthValue( puc.variable ) == TRUE )
+		if ( solver.getTruthValue( puc.var ) == TRUE )
 		{
 			Pu* unit1 = 0;
 			Pu* unit2 = 0;
@@ -992,7 +1039,7 @@ PUPHeuristic::minimize(
 	{
 		for ( ZoneAssignment* za : partnerUnits[ i ].usedIn )
 		{
-			if ( solver.getTruthValue( za->positive ) == TRUE )
+			if ( solver.getTruthValue( za->var ) == TRUE )
 			{
 				if ( za->type == ZONE )
 					partnerUnits[ i ].numberOfZones++;
@@ -1012,8 +1059,8 @@ PUPHeuristic::minimize(
 		{
 			for ( ZoneAssignment* za : partnerUnits[ i ].usedIn )
 			{
-				if ( solver.getTruthValue( za->positive ) == TRUE )
-					trueInAS->push_back( za->positive );
+				if ( solver.getTruthValue( za->var ) == TRUE )
+					trueInAS->push_back( za->var );
 			}
 		}
 
@@ -1046,12 +1093,12 @@ PUPHeuristic::minimize(
 					for ( ZoneAssignment* za2 : partnerUnits[ j ].usedIn )
 					{
 						// add nodes/sensors from unit2 to unit1 (and minimized ones)
-						if ( solver.getTruthValue( za2->positive ) == TRUE && za1->to == za2->to )
+						if ( solver.getTruthValue( za2->var ) == TRUE && za1->to == za2->to )
 						{
 							trace_msg( heuristic, 4, "Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ i ].name << " to unit " << partnerUnits[ j ].name );
 
-							trueInAS->push_back( za1->positive );
-							falseInAS->push_back( za2->positive );
+							trueInAS->push_back( za1->var );
+							falseInAS->push_back( za2->var );
 						}
 					}
 				}
@@ -1072,7 +1119,7 @@ PUPHeuristic::printStatistics(
 		found = false;
 		for ( unsigned int i = 0; i < pu.usedIn.size( ) && !found; i++ )
 		{
-			if ( solver.getTruthValue( pu.usedIn[ i ]->positive ) == TRUE )
+			if ( solver.getTruthValue( pu.usedIn[ i ]->var ) == TRUE )
 			{
 				found = true;
 				partnerUnitsUsed++;
@@ -1080,10 +1127,14 @@ PUPHeuristic::printStatistics(
 		}
 	}
 
+	cout << "Heuristic time (preprocessing) " << pre.count() << " seconds" << endl;
+	cout << "Heuristic time (decision making) " << dec.count() << " seconds" << endl;
+
 	cout << sNumberOfConflicts << " conflicts occured" << endl;
-	cout << sNumberOfBacktracks << " times a dead end was reached (required to take a step back)" << endl;
 	cout << sNumberOfOrdersCreated << " orders were created" << endl;
 	cout << sNumberOfRecommendations << " heuristic decisions made" << endl;
+	cout << sAlreadyFalse << " suggestions where already set to false " << sAlreadyFalse / sNumberOfRecommendations << " (on average)" << endl;
+	cout << sAlreadyTrue << " suggestions where already set to true " << sAlreadyTrue / sNumberOfRecommendations << " (on average)" << endl;
 	cout << partnerUnits.size( ) << " partnerunits were specified" << endl;
 	cout << partnerUnitsUsed << " partnerunits were used" << endl;
 	cout << sNumberOfOrderMaxReached << " times the last element in the order was handled without finding a solution (current solution was checked)" << endl;
