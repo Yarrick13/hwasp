@@ -78,6 +78,7 @@ class PUPHeuristic : public Heuristic
 		bool conflictHandled;
 		unsigned int assignedSinceConflict;
 		bool redoAfterConflict;
+		bool redoAfterAddingConstraint;
 		bool inputCorrect;
 		bool solutionFound;
 
@@ -101,19 +102,6 @@ class PUPHeuristic : public Heuristic
 			unsigned int type;
 		};
 
-		// represents either a zone or a sensor
-		struct Node
-		{
-			string name;
-			Var var;
-			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
-			unsigned int type;					// ZONE or SENSOR
-			unsigned int considered;
-			unsigned int ignore;
-
-			vector < ZoneAssignment* > usedIn;
-		};
-
 		// represents a partner unit
 		struct Pu
 		{
@@ -127,6 +115,20 @@ class PUPHeuristic : public Heuristic
 			unsigned int numberOfSensors;
 			unsigned int numberOfPartners;
 			bool removed;
+		};
+
+		// represents either a zone or a sensor
+		struct Node
+		{
+			string name;
+			Var var;
+			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
+			unsigned int type;					// ZONE or SENSOR
+			unsigned int considered;
+			unsigned int ignore;
+
+			vector < ZoneAssignment* > usedIn;
+			vector < Pu* > usedInUnit;
 		};
 
 		// represents a zone to sensor connection
@@ -175,9 +177,9 @@ class PUPHeuristic : public Heuristic
 
 		bool searchAndAddAssignment( Var variable, Pu pu );
 		bool getTriedAssignments( vector < Var >* tried );
-		bool getUnusedPu( Pu* pu );
-		bool isPartnerUsed( Pu pu );
-		bool getUntriedPu( Pu* pu, const vector < Var >& tried );
+		unsigned int getUnusedPu( Pu* pu, Node* current );
+		bool isPartnerUsed( Pu* pu );
+		unsigned int getUntriedPu( Pu* pu, Node* current, const vector < Var >& tried );
 		bool getPu( Var assignment, Pu *pu );
 		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
 		void printStatistics( );
