@@ -868,38 +868,38 @@ PUPHeuristic::makeAChoiceProtected( )
 
 // version 1 start
 // try unused unit first and used units afterwards ( asc )
-//		// get unused partner unit first
-//		if ( !getTriedAssignments( &tried ) )
-//		{
-//			chosenVariable = getUnusedPu( &pu, current );
-//			if ( chosenVariable != 0 )
-//				searchAndAddAssignment( chosenVariable, pu );
-//		}
-//
-//		// try all used afterwards
-//		if ( chosenVariable == 0 )
-//		{
-//			chosenVariable = getUntriedPu( &pu, current, tried );
-//			if ( chosenVariable != 0 )
-//				searchAndAddAssignment( chosenVariable, pu );
-//		}
-// version 1 end
-
-// version 2 start
-// try used units first ( asc ) and unused unit aftwards
-		// try all used units
-		getTriedAssignments( &tried );
-		chosenVariable = getUntriedPu( &pu, current, tried );
-		if ( chosenVariable != 0 )
-			searchAndAddAssignment( chosenVariable, pu, false );
-
-		// get unused partner unit
-		if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
+		// get unused partner unit first
+		if ( !getTriedAssignments( &tried ) )
 		{
 			chosenVariable = getUnusedPu( &pu, current );
 			if ( chosenVariable != 0 )
 				searchAndAddAssignment( chosenVariable, pu, true );
 		}
+
+		// try all used afterwards
+		if ( chosenVariable == 0 )
+		{
+			chosenVariable = getUntriedPu( &pu, current, tried );
+			if ( chosenVariable != 0 )
+				searchAndAddAssignment( chosenVariable, pu, false );
+		}
+// version 1 end
+
+// version 2 start
+// try used units first ( asc ) and unused unit aftwards
+//		// try all used units
+//		getTriedAssignments( &tried );
+//		chosenVariable = getUntriedPu( &pu, current, tried );
+//		if ( chosenVariable != 0 )
+//			searchAndAddAssignment( chosenVariable, pu, false );
+//
+//		// get unused partner unit
+//		if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
+//		{
+//			chosenVariable = getUnusedPu( &pu, current );
+//			if ( chosenVariable != 0 )
+//				searchAndAddAssignment( chosenVariable, pu, true );
+//		}
 // version 2 end
 
 		// chosen variable is zero if all possible partner unit has been tried
