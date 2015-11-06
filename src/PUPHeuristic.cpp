@@ -475,7 +475,8 @@ PUPHeuristic::createOrder (
 bool
 PUPHeuristic::searchAndAddAssignment(
 	Var variable,
-	Pu pu )
+	Pu pu,
+	bool triedNewUnit )
 {
 	unsigned int current = index - 1;			// because index gets incremented each time a new node is acquired from the order
 
@@ -483,6 +484,8 @@ PUPHeuristic::searchAndAddAssignment(
 	{
 		assignments[ current ].var = variable;
 		assignments[ current ].currentPu = pu;
+		if ( !assignments[ current ].triedNewUnit )
+			assignments[ current ].triedNewUnit = triedNewUnit;
 
 		if ( std::find( assignments[ current ].triedUnits.begin( ), assignments[ current ].triedUnits.end( ), pu.var ) == assignments[ current ].triedUnits.end( ) )
 			assignments[ current ].triedUnits.push_back( pu.var );
@@ -495,6 +498,7 @@ PUPHeuristic::searchAndAddAssignment(
 
 		a.var = variable;
 		a.currentPu = pu;
+		a.triedNewUnit = triedNewUnit;
 		a.triedUnits.push_back( pu.var );
 
 		assignments.push_back( a );
@@ -594,16 +598,19 @@ PUPHeuristic::getUntriedPu(
 	const vector < Var >& tried )
 {
 	Pu* partner;
-
+	unsigned int index;
 
 	for ( unsigned int i = 0; i < current->usedInUnit.size( ); i++ )
 	{
-		partner = current->usedInUnit[ i ];
+		//index = current->usedInUnit.size( ) - 1 - i;
+		index = i;
+
+		partner = current->usedInUnit[ index ];
 
 		if ( ( std::find( tried.begin(), tried.end(), partner->var ) == tried.end() ) && isPartnerUsed( partner ) )
 		{
 			*pu = *partner;
-			return current->usedIn[ i ]->var;
+			return current->usedIn[ index ]->var;
 		}
 	}
 
@@ -748,11 +755,13 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( conflictOccured )
 			{
 				redoAfterAddingConstraint = false;
+				bool redo = true;
 
 				if ( !conflictHandled )
 				{
 					bool found = false;
 					unsigned int pos = 0;
+					unsigned int pos_undefined = 0;
 
 					while ( pos < assignments.size( ) && !found )
 					{
@@ -763,8 +772,15 @@ PUPHeuristic::makeAChoiceProtected( )
 							trace_msg( heuristic, 4, "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict" );
 						}
 						else
+						{
+							if ( solver.getTruthValue( assignments[ pos ].var ) == UNDEFINED && pos_undefined == 0 )
+								pos_undefined = pos;
 							pos++;
+						}
 					}
+
+					if ( index <= pos_undefined )
+						redo = false;
 
 					// pop assignments for zones/sensor after the current index
 					while ( index < ( assignments.size( ) - 1 ) )
@@ -775,8 +791,11 @@ PUPHeuristic::makeAChoiceProtected( )
 				}
 
 				conflictOccured = false;
-				assignedSinceConflict = 0;
-				redoAfterConflict = true;
+				if ( redo )
+				{
+					assignedSinceConflict = 0;
+					redoAfterConflict = true;
+				}
 				numberOfConflicts++;
 			}
 
@@ -813,7 +832,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 							if ( current->usedIn[ i ]->var == 0 ) cout << "problem at 1" << endl;
 
-							searchAndAddAssignment( current->usedIn[ i ]->var, partnerUnits[ 0 ] );
+							searchAndAddAssignment( current->usedIn[ i ]->var, partnerUnits[ 0 ], false );
 						}
 					}
 
@@ -838,7 +857,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 					if ( za->var == 0 ) cout << "problem at 2" << endl;
 
-					searchAndAddAssignment( za->var, pu );
+					searchAndAddAssignment( za->var, pu, false );
 				}
 			}
 		}
@@ -846,21 +865,42 @@ PUPHeuristic::makeAChoiceProtected( )
 
 		vector < Var > tried;
 
-		// get unused partner unit first
-		if ( !getTriedAssignments( &tried ) )
+
+// version 1 start
+// try unused unit first and used units afterwards ( asc )
+//		// get unused partner unit first
+//		if ( !getTriedAssignments( &tried ) )
+//		{
+//			chosenVariable = getUnusedPu( &pu, current );
+//			if ( chosenVariable != 0 )
+//				searchAndAddAssignment( chosenVariable, pu );
+//		}
+//
+//		// try all used afterwards
+//		if ( chosenVariable == 0 )
+//		{
+//			chosenVariable = getUntriedPu( &pu, current, tried );
+//			if ( chosenVariable != 0 )
+//				searchAndAddAssignment( chosenVariable, pu );
+//		}
+// version 1 end
+
+// version 2 start
+// try used units first ( asc ) and unused unit aftwards
+		// try all used units
+		getTriedAssignments( &tried );
+		chosenVariable = getUntriedPu( &pu, current, tried );
+		if ( chosenVariable != 0 )
+			searchAndAddAssignment( chosenVariable, pu, false );
+
+		// get unused partner unit
+		if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
 		{
 			chosenVariable = getUnusedPu( &pu, current );
 			if ( chosenVariable != 0 )
-				searchAndAddAssignment( chosenVariable, pu );
+				searchAndAddAssignment( chosenVariable, pu, true );
 		}
-
-		// try all used afterwards
-		if ( chosenVariable == 0 )
-		{
-			chosenVariable = getUntriedPu( &pu, current, tried );
-			if ( chosenVariable != 0 )
-				searchAndAddAssignment( chosenVariable, pu );
-		}
+// version 2 end
 
 		// chosen variable is zero if all possible partner unit has been tried
 		if ( chosenVariable == 0 )
@@ -917,6 +957,13 @@ PUPHeuristic::makeAChoiceProtected( )
 	assignedSinceConflict++;
 	sNumberOfRecommendations++;
 	return Literal( chosenVariable, POSITIVE );
+}
+
+bool
+PUPHeuristic::newUnitTriedForCurrentNode(
+	)
+{
+	return assignments[ index - 1].triedNewUnit;
 }
 
 /*

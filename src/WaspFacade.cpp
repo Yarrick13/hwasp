@@ -200,25 +200,46 @@ WaspFacade::setDecisionPolicy(
         
         case HEURISTIC_PUP:
         	{
-        	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
-        	cbin->addHeuristic( "pup" );
-			solver.setHeuristic( cbin );
+				if ( heuristic_fallback )
+				{
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					cbin->addHeuristic( "pup" );
+					solver.setHeuristic( cbin );
+				}
+				else
+				{
+					solver.setHeuristic( new PUPHeuristic( solver ) );
+				}
 			}
             break;
 
         case HEURISTIC_COLOURING:
         	{
-			CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
-			cbin->addHeuristic( "colouring" );
-			solver.setHeuristic( cbin );
+        		if ( heuristic_fallback )
+				{
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					cbin->addHeuristic( "colouring" );
+					solver.setHeuristic( cbin );
+				}
+				else
+				{
+					solver.setHeuristic( new PUPHeuristic( solver ) );
+				}
 			}
         	break;
 
         case HEURISTIC_BINPACKING:
         	{
-        	CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
-        	cbin->addHeuristic( "binpacking" );
-        	solver.setHeuristic( cbin );
+        		if ( heuristic_fallback )
+				{
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					cbin->addHeuristic( "binpacking" );
+					solver.setHeuristic( cbin );
+				}
+				else
+				{
+					solver.setHeuristic( new PUPHeuristic( solver ) );
+				}
         	}
         	break;
 

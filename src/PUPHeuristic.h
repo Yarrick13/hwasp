@@ -145,6 +145,7 @@ class PUPHeuristic : public Heuristic
 			Var var;
 			Pu currentPu;
 			vector < Var > triedUnits;
+			bool triedNewUnit = false;
 		};
 
 		struct PartnerUnitConnection
@@ -175,8 +176,9 @@ class PUPHeuristic : public Heuristic
 
 		Var getVariable ( Pu *unit, Node *node );
 
-		bool searchAndAddAssignment( Var variable, Pu pu );
+		bool searchAndAddAssignment( Var variable, Pu pu, bool triedNewUnit );
 		bool getTriedAssignments( vector < Var >* tried );
+		bool newUnitTriedForCurrentNode( );
 		unsigned int getUnusedPu( Pu* pu, Node* current );
 		bool isPartnerUsed( Pu* pu );
 		unsigned int getUntriedPu( Pu* pu, Node* current, const vector < Var >& tried );

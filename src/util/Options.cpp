@@ -68,6 +68,7 @@ namespace wasp
 #define OPTIONID_colouringheuristic ( 'z' + 35 )
 #define OPTIONID_binpackingheuristic ( 'z' + 36 )
 #define OPTIONID_combinedheuristic ( 'z' + 37 )
+#define OPTIONID_heuristicfallback ( 'z' + 38 )
 
 /* RESTART OPTIONS */
 #define OPTIONID_geometric_restarts ( 'z' + 50 )
@@ -113,6 +114,7 @@ TraceLevels Options::traceLevels;
 DELETION_POLICY Options::deletionPolicy = RESTARTS_BASED_DELETION_POLICY;
 
 DECISION_POLICY Options::decisionPolicy = HEURISTIC_BERKMIN;
+bool heuristic_fallback = false;
 
 string Options::combined_heuristic_option = "";
 
@@ -214,6 +216,7 @@ Options::parse(
 				{ "heuristic-colouring", no_argument, NULL, OPTIONID_colouringheuristic },
 				{ "heuristic-binpacking", no_argument, NULL, OPTIONID_binpackingheuristic },
 				{ "heuristic-combined", required_argument, NULL, OPTIONID_combinedheuristic },
+				{ "heuristic-fallback", no_argument, NULL, OPTIONID_heuristicfallback },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -386,6 +389,10 @@ Options::parse(
             	decisionPolicy = HEURISTIC_BINPACKING;
             	break;
 
+            case OPTIONID_heuristicfallback:
+            	heuristic_fallback = true;
+            	break;
+
             case OPTIONID_combinedheuristic:
             	decisionPolicy = HEURISTIC_COMBINED;
             	combined_heuristic_option = optarg;
@@ -555,6 +562,7 @@ Options::setOptions(
     WaspFacade& waspFacade )
 {
     waspFacade.setCombinedHeuristicOption( combined_heuristic_option );
+    waspFacade.setHeuristicFallback( heuristic_fallback );
     waspFacade.setDeletionPolicy( deletionPolicy, deletionThreshold );
     waspFacade.setDecisionPolicy( decisionPolicy, decisionThreshold );
     waspFacade.setOutputPolicy( outputPolicy );

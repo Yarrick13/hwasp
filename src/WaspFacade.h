@@ -67,6 +67,7 @@ class WaspFacade
         inline unsigned int solveWithWeakConstraints();
 
         inline void setCombinedHeuristicOption( string value ) { combined_heuristic_option = value; };
+        inline void setHeuristicFallback( bool heuristic_fallback ) { this->heuristic_fallback = heuristic_fallback; };
 
     private:
         Solver solver;
@@ -82,6 +83,7 @@ class WaspFacade
         unsigned int queryAlgorithm;
 
         string combined_heuristic_option;
+        bool heuristic_fallback;
 };
 
 WaspFacade::WaspFacade() : numberOfModels( 0 ), maxModels( 1 ), printProgram( false ), printDimacs( false ), weakConstraintsAlg( OPT ), disjCoresPreprocessing( false )
