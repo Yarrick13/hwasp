@@ -117,6 +117,7 @@ class PUPHeuristic : public Heuristic
 			bool removed;
 		};
 
+    public:
 		// represents either a zone or a sensor
 		struct Node
 		{
@@ -131,6 +132,7 @@ class PUPHeuristic : public Heuristic
 			vector < Pu* > usedInUnit;
 		};
 
+    private:
 		// represents a zone to sensor connection
 		struct Connection
 		{

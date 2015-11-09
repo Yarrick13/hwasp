@@ -177,6 +177,13 @@ PUPHeuristic::processVariable (
 	}
 }
 
+bool compareNodes (
+	PUPHeuristic::Node* n1,
+	PUPHeuristic::Node* n2 )
+{
+	return std::stoi( n1->name ) < std::stoi( n2->name );
+};
+
 /*
  * initialize the heuristic after parsing the input
  * 		initialize zone assingment vectors and create the first order
@@ -269,6 +276,12 @@ PUPHeuristic::initRelation(
 		s->children.push_back( z );
 	}
 
+	for ( unsigned int i = 0; i < zones.size( ); i++ )
+		std::sort ( zones[ i ].children.begin( ), zones[ i ].children.end(), compareNodes );
+
+	for ( unsigned int i = 0; i < sensors.size( ); i++ )
+		std::sort ( sensors[ i ].children.begin( ), sensors[ i ].children.end(), compareNodes );
+
 	trace_msg( heuristic, 2, "Creating 'usedIn' relation" );
 
 	ZoneAssignment* za;
@@ -325,8 +338,6 @@ PUPHeuristic::initRelation(
 				found = true;
 			}
 		}
-
-
 	}
 }
 
@@ -430,13 +441,14 @@ PUPHeuristic::createOrder (
 			return false;
 		}
 
-		for ( Node *child : (*next).children )
+		for ( unsigned int i = 0; i <  (*next).children.size( ); i++ )
 		{
-			if ( (*child).considered < newConsidered )
+			Node* child = (*next).children[ i ];
+			if ( child->considered < newConsidered )
 			{
-				(*child).considered = newConsidered;
+				child->considered = newConsidered;
 				order.push_back( child );
-				orderOutput += (*child).name + ( ( child->type == ZONE ) ? " ( zone )" : " ( sensor )" ) + ", ";
+				orderOutput += child->name + ( ( child->type == ZONE ) ? " ( zone )" : " ( sensor )" ) + ", ";
 			}
 		}
 
