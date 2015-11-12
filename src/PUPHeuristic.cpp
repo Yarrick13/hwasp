@@ -31,7 +31,7 @@
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), numberOfConflicts( 0 ), coherent( true ), conflictOccured( false ),
-	conflictHandled( true ), assignedSinceConflict( 0 ), redoAfterConflict( false ), redoAfterAddingConstraint( false ), inputCorrect( true ), solutionFound( false ),
+	conflictHandled( true ), redoAfterAddingConstraint( false ), inputCorrect( true ), solutionFound( false ),
 	sNumberOfConflicts( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 ), sFallback( 0 ),
 	sAlreadyFalse( 0 ), sAlreadyTrue( 0 ), pre( 0 ), dec( 0 )
 { }
@@ -688,8 +688,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		coherent = true;
 		conflictOccured = false;
 		conflictHandled = true;
-		assignedSinceConflict = 0;
-		redoAfterConflict = false;
 		inputCorrect = false;
 		solutionFound = false;
 		sNumberOfConflicts = 0;
@@ -767,7 +765,6 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( conflictOccured )
 			{
 				redoAfterAddingConstraint = false;
-				bool redo = true;
 
 				if ( !conflictHandled )
 				{
@@ -777,7 +774,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 					while ( pos < assignments.size( ) && !found )
 					{
-						if ( solver.getTruthValue( assignments[ pos ].var ) == FALSE )
+						if ( solver.getTruthValue( assignments[ pos ].var ) != TRUE )
 						{
 							found = true;
 							index = pos;
@@ -791,9 +788,6 @@ PUPHeuristic::makeAChoiceProtected( )
 						}
 					}
 
-					if ( index <= pos_undefined )
-						redo = false;
-
 					// pop assignments for zones/sensor after the current index
 					while ( index < ( assignments.size( ) - 1 ) )
 						assignments.pop_back( );
@@ -803,28 +797,7 @@ PUPHeuristic::makeAChoiceProtected( )
 				}
 
 				conflictOccured = false;
-				if ( redo )
-				{
-					assignedSinceConflict = 0;
-					redoAfterConflict = true;
-				}
 				numberOfConflicts++;
-			}
-
-			// redo all UNDEFINED up to the current assignemnt
-			// after the current zone/sensor has been assigned (otherwise the same conflict can occur again)
-			if ( redoAfterConflict  && assignedSinceConflict > 0 )
-			{
-				for ( unsigned int i = 0; i < assignments.size( ); i++ )
-				{
-					chosenVariable = assignments[ i ].var;
-
-					if ( solver.isUndefined( chosenVariable ) )
-						return Literal( chosenVariable, POSITIVE );
-				}
-
-				redoAfterConflict = false;
-				chosenVariable = 0;
 			}
 
 			// make a choice
@@ -921,6 +894,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 			if ( index > 1 )
 			{
+				string ass = "";
 				index--;
 				assignments.pop_back( );
 				unrollHeuristic( );
@@ -930,10 +904,13 @@ PUPHeuristic::makeAChoiceProtected( )
 				{
 					if ( solver.isUndefined( a.var ) )
 						l.push_back( Literal (a.var, NEGATIVE ) );
+
+					ass += VariableNames::getName( a.var ) + ", ";
 				}
 				addClause( l );
 
 				redoAfterAddingConstraint = true;
+				trace_msg( heuristic, 3, "Not possible: " << ass );
 
 				return Literal( assignments[ 0 ].var, POSITIVE );
 			}
@@ -966,7 +943,6 @@ PUPHeuristic::makeAChoiceProtected( )
 	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
 	dec += time_span;
 
-	assignedSinceConflict++;
 	sNumberOfRecommendations++;
 	return Literal( chosenVariable, POSITIVE );
 }

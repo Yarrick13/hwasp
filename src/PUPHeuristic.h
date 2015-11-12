@@ -76,8 +76,6 @@ class PUPHeuristic : public Heuristic
 		bool coherent;
 		bool conflictOccured;
 		bool conflictHandled;
-		unsigned int assignedSinceConflict;
-		bool redoAfterConflict;
 		bool redoAfterAddingConstraint;
 		bool inputCorrect;
 		bool solutionFound;
