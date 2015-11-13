@@ -177,6 +177,9 @@ PUPHeuristic::processVariable (
 	}
 }
 
+/*
+ * compares to Nodes (pointers) for ordering based in their name
+ */
 bool compareNodes (
 	PUPHeuristic::Node* n1,
 	PUPHeuristic::Node* n2 )
@@ -774,7 +777,7 @@ PUPHeuristic::makeAChoiceProtected( )
 
 					while ( pos < assignments.size( ) && !found )
 					{
-						if ( solver.getTruthValue( assignments[ pos ].var ) != TRUE )
+						if ( solver.getTruthValue( assignments[ pos ].var ) == FALSE )
 						{
 							found = true;
 							index = pos;
@@ -815,8 +818,6 @@ PUPHeuristic::makeAChoiceProtected( )
 						{
 							search = true;
 
-							if ( current->usedIn[ i ]->var == 0 ) cout << "problem at 1" << endl;
-
 							searchAndAddAssignment( current->usedIn[ i ]->var, partnerUnits[ 0 ], false );
 						}
 					}
@@ -839,8 +840,6 @@ PUPHeuristic::makeAChoiceProtected( )
 							                         << " -> continue with next zone/sensor" );
 
 					getPu( za->var, &pu );
-
-					if ( za->var == 0 ) cout << "problem at 2" << endl;
 
 					searchAndAddAssignment( za->var, pu, false );
 				}
