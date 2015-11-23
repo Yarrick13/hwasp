@@ -764,7 +764,7 @@ PUPHeuristic::makeAChoiceProtected( )
 				}
 			}
 
-			// handle conflict and prepare for redo
+			// handle conflict
 			if ( conflictOccured )
 			{
 				redoAfterAddingConstraint = false;
@@ -773,26 +773,20 @@ PUPHeuristic::makeAChoiceProtected( )
 				{
 					bool found = false;
 					unsigned int pos = 0;
-					unsigned int pos_undefined = 0;
 
 					while ( pos < assignments.size( ) && !found )
 					{
-						if ( solver.getTruthValue( assignments[ pos ].var ) == FALSE )
+						if ( solver.getTruthValue( assignments[ pos ].var ) != TRUE )
 						{
 							found = true;
 							index = pos;
 							trace_msg( heuristic, 4, "Reset index to node " << order[ pos ]->name << " ( index " << pos << " ) due to conflict" );
 						}
-						else
-						{
-							if ( solver.getTruthValue( assignments[ pos ].var ) == UNDEFINED && pos_undefined == 0 )
-								pos_undefined = pos;
-							pos++;
-						}
+						pos++;
 					}
 
 					// pop assignments for zones/sensor after the current index
-					while ( index < ( assignments.size( ) - 1 ) )
+					while ( assignments.size( ) > 2 && index < ( assignments.size( ) - 2 ) )
 						assignments.pop_back( );
 
 					conflictHandled = true;
@@ -848,7 +842,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		while( found );
 
 		vector < Var > tried;
-
 
 // version 1 start
 // try unused unit first and used units afterwards ( asc )
@@ -950,7 +943,10 @@ bool
 PUPHeuristic::newUnitTriedForCurrentNode(
 	)
 {
-	return assignments[ index - 1].triedNewUnit;
+	if ( index <= assignments.size( ) )
+		return assignments[ index - 1].triedNewUnit;
+	else
+		return false;
 }
 
 /*
