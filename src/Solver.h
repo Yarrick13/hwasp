@@ -85,7 +85,7 @@ class Solver
         ~Solver();
         
         inline void greetings(){ outputBuilder->greetings(); }
-        inline void onFinish() { outputBuilder->onFinish(); }
+        inline void onFinish() { heuristic->onFinishedSolving( ); outputBuilder->onFinish(); }
         inline void onKill();
         
         inline unsigned int solve();
@@ -109,7 +109,6 @@ class Solver
         inline void addVariable();
         inline void addVariableRuntime();
         inline void onFinishedParsing ( ) { heuristic->onFinishedParsing( ); }
-        inline void onFinishedSolving ( ) { heuristic->onFinishedSolving( ); }
         inline unsigned int getNumberOfAssumptions ( ) { return numberOfAssumptions; }
         
         inline bool cleanAndAddClause( Clause* clause );
@@ -1302,6 +1301,15 @@ Solver::analyzeConflict()
     }    
 
     Clause* learnedClause = learning.onConflict( conflictLiteral, conflictClause );
+
+//    cout << "learned clauses" << endl;
+//    for ( unsigned int i = 0; i < learnedClause->size(); i ++ )
+//    {
+//    	const Literal& l = learnedClause->getAt( i );
+//    	cout << (l.isNegative() ? "-" : "") << VariableNames::getName( l.getVariable() ) << " ";
+//    }
+//    cout << endl;
+
     assert( "Learned clause has not been calculated." && learnedClause != NULL );
     statistics( this, onLearning( learnedClause->size() ) );
     

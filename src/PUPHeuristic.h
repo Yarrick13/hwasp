@@ -59,7 +59,7 @@ class PUPHeuristic : public Heuristic
         void incrementHeuristicValues( Var ) { };
         void simplifyVariablesAtLevelZero() { };
         void conflictOccurred( );
-        unsigned int getTreshold( ){ return numberOfConflicts; };
+        unsigned int getTreshold( ){ return sNumberOfConflicts; };
         void onFinishedSolving( );
         bool isInputCorrect( ) { return inputCorrect; };
         bool isCoherent( ) { return coherent; };
@@ -72,9 +72,7 @@ class PUPHeuristic : public Heuristic
 		unsigned int index;						// current order index ( next node to be considered )
 		unsigned int maxPu;						// maximum number of partner units per unit
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit
-		unsigned int numberOfConflicts;
 		bool coherent;
-		bool conflictOccured;
 		bool conflictHandled;
 		bool redoAfterAddingConstraint;
 		bool inputCorrect;
@@ -113,6 +111,7 @@ class PUPHeuristic : public Heuristic
 			unsigned int numberOfSensors;
 			unsigned int numberOfPartners;
 			bool removed;
+			bool used;
 		};
 
     public:
@@ -143,7 +142,7 @@ class PUPHeuristic : public Heuristic
 		struct Assignment
 		{
 			Var var;
-			Pu currentPu;
+			Pu* currentPu;
 			vector < Var > triedUnits;
 			bool triedNewUnit = false;
 		};
@@ -176,13 +175,13 @@ class PUPHeuristic : public Heuristic
 
 		Var getVariable ( Pu *unit, Node *node );
 
-		bool searchAndAddAssignment( Var variable, Pu pu, bool triedNewUnit );
+		bool searchAndAddAssignment( Var variable, Pu* pu, bool triedNewUnit );
 		bool getTriedAssignments( vector < Var >* tried );
 		bool newUnitTriedForCurrentNode( );
-		unsigned int getUnusedPu( Pu* pu, Node* current );
-		bool isPartnerUsed( Pu* pu );
-		unsigned int getUntriedPu( Pu* pu, Node* current, const vector < Var >& tried );
-		bool getPu( Var assignment, Pu *pu );
+		unsigned int getUnusedPu( Pu** pu, Node* current );
+		void resetUsedUnits( );
+		unsigned int getUntriedPu( Pu** pu, Node* current, const vector < Var >& tried );
+		bool getPu( Var assignment, Pu** pu );
 		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
 		void printStatistics( );
 };
