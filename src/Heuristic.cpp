@@ -52,7 +52,7 @@ void
 Heuristic::unrollHeuristic(
 	)
 {
-	trace_msg( heuristic, 1, "Unroll heuristic" );
+	trace_msg( heuristic, 2, "Unroll heuristic" );
 
 	if ( solver.getCurrentDecisionLevel( ) > solver.getNumberOfAssumptions( ) )
 		solver.unroll( solver.getNumberOfAssumptions( ) );

@@ -73,10 +73,13 @@ class PUPHeuristic : public Heuristic
 		unsigned int maxPu;						// maximum number of partner units per unit
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit
 		bool coherent;
+		bool shrinkingPossible;
 		bool conflictHandled;
 		bool redoAfterAddingConstraint;
+		bool redoAfterShrinking;
 		bool inputCorrect;
 		bool solutionFound;
+		unsigned int resetLimit;
 
 		unsigned int sNumberOfConflicts;
 		unsigned int sNumberOfOrdersCreated;
@@ -111,7 +114,7 @@ class PUPHeuristic : public Heuristic
 			unsigned int numberOfSensors;
 			unsigned int numberOfPartners;
 			bool removed;
-			bool used;
+			bool isUsed;
 		};
 
     public:
@@ -124,6 +127,7 @@ class PUPHeuristic : public Heuristic
 			unsigned int type;					// ZONE or SENSOR
 			unsigned int considered;
 			unsigned int ignore;
+			unsigned int resetTo;
 
 			vector < ZoneAssignment* > usedIn;
 			vector < Pu* > usedInUnit;
@@ -165,9 +169,10 @@ class PUPHeuristic : public Heuristic
 
 		vector < Node* > order;					// current node order
 		vector < Assignment > assignments;		// current assignments done by the heuristic
+		vector < Var > shrinked;
 
 		void initRelation ( );
-		bool resetHeuristic ( );
+		bool resetHeuristic ( bool createNewOrder );
 		void processVariable ( Var v );
 		bool checkInput( );
 		void initUnitAssignments( ZoneAssignment pu, unsigned int type );
@@ -179,10 +184,11 @@ class PUPHeuristic : public Heuristic
 		bool getTriedAssignments( vector < Var >* tried );
 		bool newUnitTriedForCurrentNode( );
 		unsigned int getUnusedPu( Pu** pu, Node* current );
+		bool allUnitsUsed( );
 		void resetUsedUnits( );
 		unsigned int getUntriedPu( Pu** pu, Node* current, const vector < Var >& tried );
 		bool getPu( Var assignment, Pu** pu );
-		void minimize( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed);
+		void shrink( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed, vector< Pu* >* notUsed);
 		void printStatistics( );
 };
 
