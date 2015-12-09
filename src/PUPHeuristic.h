@@ -170,6 +170,7 @@ class PUPHeuristic : public Heuristic
 		vector < Node* > order;					// current node order
 		vector < Assignment > assignments;		// current assignments done by the heuristic
 		vector < Var > shrinked;
+		vector < Var > undefined;
 
 		void initRelation ( );
 		bool resetHeuristic ( bool createNewOrder );

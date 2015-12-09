@@ -80,12 +80,13 @@ struct OptimizationLiteralData
 
 class Solver
 {
+	friend class PUPHeuristic;
     public:
         inline Solver();
         ~Solver();
         
         inline void greetings(){ outputBuilder->greetings(); }
-        inline void onFinish() { heuristic->onFinishedSolving( ); outputBuilder->onFinish(); }
+        inline void onFinish() { outputBuilder->onFinish(); }
         inline void onKill();
         
         inline unsigned int solve();
@@ -1212,6 +1213,7 @@ void
 Solver::printAnswerSet()
 {
     variables.printAnswerSet( outputBuilder );
+    heuristic->onFinishedSolving( );
 }
 
 void

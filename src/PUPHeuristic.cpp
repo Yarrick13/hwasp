@@ -19,15 +19,13 @@
 #include "PUPHeuristic.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <iterator>
-#include <string>
-#include <vector>
 
+#include "Clause.h"
 #include "Solver.h"
-#include "util/Assert.h"
-#include "util/Constants.h"
-#include "util/VariableNames.h"
 #include "util/HeuristicUtil.h"
+#include "util/VariableNames.h"
 
 PUPHeuristic::PUPHeuristic( Solver& s ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), coherent( true ), shrinkingPossible( true ),
@@ -56,11 +54,11 @@ PUPHeuristic::processVariable (
 		string tmp;
 		string tmp2;
 
-		if( name.compare( 0, 6, "elem(z" ) == 0 )
-		//if( name.compare( 0, 5, "zone(" ) == 0 )
+		//if( name.compare( 0, 6, "elem(z" ) == 0 )
+		if( name.compare( 0, 5, "zone(" ) == 0 )
 		{
-			HeuristicUtil::getName( name, &tmp, &tmp2 );
-			//HeuristicUtil::getName( name, &tmp2 );
+			//HeuristicUtil::getName( name, &tmp, &tmp2 );
+			HeuristicUtil::getName( name, &tmp2 );
 
 			Node zone;
 			zone.name = tmp2;
@@ -72,11 +70,11 @@ PUPHeuristic::processVariable (
 
 			trace_msg( heuristic, 3, "Processed variable " << v << " " << name << " ( zone )" );
 		}
-		else if( name.compare( 0, 6, "elem(d" ) == 0 )
-		//else if( name.compare( 0, 11, "doorSensor(" ) == 0 )
+		//else if( name.compare( 0, 6, "elem(d" ) == 0 )
+		else if( name.compare( 0, 7, "sensor(" ) == 0 )
 		{
-			HeuristicUtil::getName( name, &tmp, &tmp2 );
-			//HeuristicUtil::getName( name, &tmp2 );
+			//HeuristicUtil::getName( name, &tmp, &tmp2 );
+			HeuristicUtil::getName( name, &tmp2 );
 
 			Node sensor;
 			sensor.name = tmp2;
@@ -360,6 +358,7 @@ PUPHeuristic::resetHeuristic (
 {
 	assignments.clear( );
 	index = 0;
+	undefined.clear( );
 
 	unrollHeuristic( );
 	solver.clearConflictStatus( );
@@ -678,9 +677,18 @@ PUPHeuristic::makeAChoiceProtected( )
 {
 	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
+	Var chosenVariable;
+
+	if ( undefined.size( ) > 0 )
+	{
+		chosenVariable = undefined.back( );
+		undefined.pop_back( );
+		trace_msg( heuristic, 4, "Set " << VariableNames::getName( chosenVariable ) << " to false" );
+		Literal( chosenVariable, NEGATIVE );
+	}
+
 	Pu* pu;
 	Node* current;
-	Var chosenVariable;
 	Assignment a;
 	bool found;
 
@@ -757,8 +765,8 @@ PUPHeuristic::makeAChoiceProtected( )
 
 	if ( solutionFound )
 	{
-		trace_msg( heuristic, 3, "Look for another solution - reset heuristic" );
-		//cout << "Look for another solution - reset heuristic" << endl;
+		trace_msg( heuristic, 2, "Looking for other solution - reset heuristic" );
+		//cout << "Looking for other solution - reset heuristic" << endl;
 
 		startAt = 0;
 		index = 0;
@@ -770,7 +778,10 @@ PUPHeuristic::makeAChoiceProtected( )
 		sNumberOfOrdersCreated = 0;
 		sNumberOfRecommendations = 0;
 		sNumberOfOrderMaxReached = 0;
+		shrinkingPossible = true;
+		resetUsedUnits( );
 
+		undefined.clear( );
 		assignments.clear( );
 
 		for ( unsigned int i = 0; i < zones.size( ); i++ )
@@ -779,7 +790,24 @@ PUPHeuristic::makeAChoiceProtected( )
 		for ( unsigned int i = 0; i < sensors.size( ); i++ )
 			sensors[ i ].considered = 0;
 
-		createOrder( );
+		resetHeuristic( true );
+
+		trace_msg( heuristic, 2, "Adding constraint to avoid previous solution" );
+		//cout << "Adding constraint to avoid previous solution" << endl;
+
+		vector< Literal > l;
+		for ( Pu pu : partnerUnits )
+		{
+			for ( ZoneAssignment* za : pu.usedIn)
+			{
+				if ( solver.getTruthValue( za->var ) == TRUE )
+				{
+					if ( solver.isUndefined( za->var ) )
+						l.push_back( Literal( za->var, NEGATIVE ) );
+				}
+			}
+		}
+		addClause( l );
 	}
 
 	do
@@ -787,7 +815,7 @@ PUPHeuristic::makeAChoiceProtected( )
 		if ( !coherent )
 		{
 			trace_msg( heuristic, 4, "Heuristic can not find a solution" );
-			cout << "Heuristic can not find a solution" << endl;
+			//cout << "Heuristic can not find a solution" << endl;
 			sFallback = 2;
 			return Literal::null;
 		}
@@ -828,10 +856,18 @@ PUPHeuristic::makeAChoiceProtected( )
 
 				if ( allTrue )
 				{
-					trace_msg( heuristic, 4, "PuP heuristic found solution but wasp did not recognized it - fall back to Minisat heuristic" );
-					//cout << "PuP heuristic found solution but wasp did not recognized it - fall back to Minisat heuristic" << endl;
-					sFallback = 1;
-					return Literal::null;
+					assert_msg( solver.allClausesSatisfied( ), "Heuristic has everything set but there unsatisfied clauses!" );
+
+					for ( unsigned int i = 0; i < variables.size( ); i++ )
+					{
+						if ( solver.getTruthValue( variables[ i ] ) == UNDEFINED )
+							undefined.push_back( variables[ i ] );
+					}
+
+					chosenVariable = undefined.back( );
+					undefined.pop_back( );
+					trace_msg( heuristic, 4, "Set " << VariableNames::getName( chosenVariable ) << " to false" );
+					return Literal( chosenVariable, NEGATIVE );
 				}
 				else
 				{
@@ -930,7 +966,8 @@ PUPHeuristic::makeAChoiceProtected( )
 		}
 		while( found );
 
-		if ( current->resetTo <= resetLimit )
+		//if ( current->resetTo <= resetLimit )		// reset
+		if ( true )									// no reset
 		{
 			vector < Var > tried;
 
@@ -1155,7 +1192,7 @@ PUPHeuristic::shrink(
 		partnerUnits[ i ].numberOfPartners = 0;
 	}
 
-	trace_msg( heuristic, 2, "[shrink] Analyse partner unit connection" );
+	trace_msg( heuristic, 4, "[shrink] Analyse partner unit connection" );
 	//cout << "[shrink] Analyse partner unit connection" << endl;
 	for ( PartnerUnitConnection puc : partnerUnitConnections )
 	{
@@ -1186,7 +1223,7 @@ PUPHeuristic::shrink(
 		}
 	}
 
-	trace_msg( heuristic, 2, "[shrink] Count connected zones/sensors/partners and get unused units" );
+	trace_msg( heuristic, 4, "[shrink] Count connected zones/sensors/partners and get unused units" );
 	//cout << "[shrink] Count connected zones/sensors/partners and get unused units" << endl;
 	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
 	{
@@ -1209,7 +1246,7 @@ PUPHeuristic::shrink(
 			notUsed->push_back( &partnerUnits[ i ] );
 	}
 
-	trace_msg( heuristic, 2, "[shrink] Start pre-shrinking computation" );
+	trace_msg( heuristic, 4, "[shrink] Start pre-shrinking computation" );
 	//cout << "[shrink] Start pre-shrinking computation" << endl;
 	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
 	{
@@ -1244,7 +1281,7 @@ PUPHeuristic::shrink(
 						 partnerUnits[ i ].removed == false &&
 						 partnerUnits[ j ].removed == false )
 					{
-						trace_msg( heuristic, 3, "[shrink] Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" );
+						trace_msg( heuristic, 5, "[shrink] Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" );
 						//cout << "[shrink] Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" << endl;
 
 						partnerUnits[ i ].numberOfZones = nZones;
@@ -1273,8 +1310,8 @@ PUPHeuristic::shrink(
 
 								// add nodes/sensors from unit2 to unit1 (and minimized ones)
 								if ( solver.getTruthValue( za2->var ) == TRUE && za1->to == za2->to && za1->type == za2->type )
-								{	//cout << za1->to << " and " << za2->to << endl;
-									trace_msg( heuristic, 4, "[shrink] Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ j ].name << " to unit " << partnerUnits[ i ].name );
+								{
+									trace_msg( heuristic, 6, "[shrink] Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ j ].name << " to unit " << partnerUnits[ i ].name );
 									//cout << "[shrink] Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ j ].name << " to unit " << partnerUnits[ i ].name << endl;
 
 									trueInAS->push_back( za1->var );
@@ -1296,19 +1333,11 @@ PUPHeuristic::printStatistics(
 	)
 {
 	unsigned int partnerUnitsUsed = 0;
-	bool found;
 
 	for ( Pu pu : partnerUnits )
 	{
-		found = false;
-		for ( unsigned int i = 0; i < pu.usedIn.size( ) && !found; i++ )
-		{
-			if ( solver.getTruthValue( pu.usedIn[ i ]->var ) == TRUE )
-			{
-				found = true;
-				partnerUnitsUsed++;
-			}
-		}
+		if ( pu.isUsed )
+			partnerUnitsUsed++;
 	}
 
 	cout << "Heuristic time (preprocessing) " << pre.count() << " seconds" << endl;
