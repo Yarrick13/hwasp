@@ -72,6 +72,7 @@ class PUPHeuristic : public Heuristic
 		unsigned int index;						// current order index ( next node to be considered )
 		unsigned int maxPu;						// maximum number of partner units per unit
 		unsigned int maxElementsOnPu;			// maximum number of zones/sensors per unit
+		unsigned int lowerBound;
 		bool coherent;
 		bool shrinkingPossible;
 		bool conflictHandled;
@@ -80,6 +81,7 @@ class PUPHeuristic : public Heuristic
 		bool inputCorrect;
 		bool solutionFound;
 		unsigned int resetLimit;
+		unsigned int shrinkingIndex;
 
 		unsigned int sNumberOfConflicts;
 		unsigned int sNumberOfOrdersCreated;
@@ -101,6 +103,7 @@ class PUPHeuristic : public Heuristic
 			unsigned int type;
 		};
 
+    public:
 		// represents a partner unit
 		struct Pu
 		{
@@ -110,6 +113,7 @@ class PUPHeuristic : public Heuristic
 			vector < ZoneAssignment* > usedIn;
 
 			vector < Pu* > connectedTo;
+			vector < Pu* > currentlyConnectedTo;
 			unsigned int numberOfZones;
 			unsigned int numberOfSensors;
 			unsigned int numberOfPartners;
@@ -117,20 +121,22 @@ class PUPHeuristic : public Heuristic
 			bool isUsed;
 		};
 
-    public:
 		// represents either a zone or a sensor
 		struct Node
 		{
 			string name;
 			Var var;
-			vector < Node* > children;			// all sensors connected to this zone ( or vice versa )
+			vector < Node* > connectedNodes;			// all sensors connected to this zone ( or vice versa )
 			unsigned int type;					// ZONE or SENSOR
 			unsigned int considered;
 			unsigned int ignore;
 			unsigned int resetTo;
+			unsigned int currentOrderPosition;
 
 			vector < ZoneAssignment* > usedIn;
 			vector < Pu* > usedInUnit;
+			vector < Pu* > untriedPredecessorUnits;
+			Pu* assignedTo;
 		};
 
     private:
@@ -155,7 +161,9 @@ class PUPHeuristic : public Heuristic
 		{
 			Var var;
 			string unit1;
+			Pu* pu1;
 			string unit2;
+			Pu* pu2;
 		};
 
 		vector < Var > variables;
@@ -181,16 +189,19 @@ class PUPHeuristic : public Heuristic
 
 		Var getVariable ( Pu *unit, Node *node );
 
-		bool searchAndAddAssignment( Var variable, Pu* pu, bool triedNewUnit );
+		bool searchAndAddAssignment( Node* node, Var variable, Pu* pu, bool triedNewUnit );
+		void getPredecessorUnits( Node* node );
 		bool getTriedAssignments( vector < Var >* tried );
 		bool newUnitTriedForCurrentNode( );
 		unsigned int getUnusedPu( Pu** pu, Node* current );
 		bool allUnitsUsed( );
 		void resetUsedUnits( );
+		unsigned int getUntriedPredecessorUnit( Pu** pu, Node* current );
 		unsigned int getUntriedPu( Pu** pu, Node* current, const vector < Var >& tried );
 		bool getPu( Var assignment, Pu** pu );
 		void shrink( vector< Var >* trueInAS, vector< Var>* falseInAS, vector< Pu* >* removed, vector< Pu* >* notUsed);
 		void printStatistics( );
+		bool checkPartialAssignment( );
 };
 
 #endif
