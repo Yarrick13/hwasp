@@ -63,6 +63,33 @@ HeuristicUtil::getName(
 	*name2 = atom.substr( middle + 1, end - middle - 1 );
 }
 
+/*
+ * read terms of a binary atom
+ *
+ * 	@param atom 	the atom
+ * 	@param name1	the first term
+ * 	@param name2	the second term
+ * 	@param name3 	the third term
+ */
+void
+HeuristicUtil::getName(
+	string atom,
+	string *name1,
+	string *name2,
+	string *name3 )
+{
+	unsigned int start = atom.find_first_of( "(" );
+	unsigned int middle1 = atom.find_first_of( "," );
+	unsigned int middle2 = atom.find_last_of( "," );
+	unsigned int end = atom.find_last_of( ")" );
+
+	assert_msg( start != string::npos && end != string::npos && start < end, "Error while processing " + atom );
+
+	*name1 = atom.substr( start + 1, middle1 - start - 1 );
+	*name2 = atom.substr( middle1 + 1, middle2 - middle1 - 1 );
+	*name3 = atom.substr( middle2 + 1, end - middle2 - 1 );
+}
+
 char
 HeuristicUtil::tolower(
 	char in )

@@ -69,6 +69,7 @@ namespace wasp
 #define OPTIONID_binpackingheuristic ( 'z' + 36 )
 #define OPTIONID_combinedheuristic ( 'z' + 37 )
 #define OPTIONID_heuristicfallback ( 'z' + 38 )
+#define OPTIONID_ccpheuristic ( 'z' + 39 )
 
 /* RESTART OPTIONS */
 #define OPTIONID_geometric_restarts ( 'z' + 50 )
@@ -217,6 +218,7 @@ Options::parse(
 				{ "heuristic-binpacking", no_argument, NULL, OPTIONID_binpackingheuristic },
 				{ "heuristic-combined", required_argument, NULL, OPTIONID_combinedheuristic },
 				{ "heuristic-fallback", no_argument, NULL, OPTIONID_heuristicfallback },
+				{ "heuristic-ccp", no_argument, NULL, OPTIONID_ccpheuristic },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -387,6 +389,10 @@ Options::parse(
 
             case OPTIONID_binpackingheuristic:
             	decisionPolicy = HEURISTIC_BINPACKING;
+            	break;
+
+            case OPTIONID_ccpheuristic:
+            	decisionPolicy = HEURISTIC_CCP;
             	break;
 
             case OPTIONID_heuristicfallback:

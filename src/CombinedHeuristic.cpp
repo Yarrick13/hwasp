@@ -21,6 +21,7 @@
 #include "PUPHeuristic.h"
 #include "ColouringHeuristic.h"
 #include "BinPackingHeuristic.h"
+#include "CCPHeuristic.h"
 #include "util/HeuristicUtil.h"
 
 CombinedHeuristic::CombinedHeuristic(
@@ -189,6 +190,11 @@ CombinedHeuristic::addHeuristic(
 	{
 		heuristics.push_back( new BinPackingHeuristic( solver ) );
 		heursisticsNames.push_back( "bin packing heuristic" );
+	}
+	else if ( h == "ccp" )
+	{
+		heuristics.push_back( new CCPHeuristic( solver ) );
+		heursisticsNames.push_back( "ccp packing heuristic" );
 	}
 	else
 		return false;

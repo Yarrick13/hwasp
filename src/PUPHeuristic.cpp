@@ -271,7 +271,7 @@ PUPHeuristic::initRelation(
 
 	trace_msg( heuristic, 2, "Creating zone-to-sensor relation" );
 
-	for ( Connection c : zone2sensor)
+	for ( Connection c : zone2sensor )
 	{
 		found = false;
 		for ( unsigned int i = 0; i < zones.size() && !found; i++ )
@@ -1038,14 +1038,16 @@ PUPHeuristic::makeAChoiceProtected( )
 				}
 			}
 
-// needed for pred start
+// check for pred start
 // not working with shrinking (isUsed from partnerunits is not synchronized)
 //			if ( !checkPartialAssignment( ) )
 //			{
 //				trace_msg( heuristic, 3, "Solution not possible with current partial assignment (circle detected)" );
 //				//cout << "Solution not possible with current partial assignment (circle detected)" << endl;
 //
+//#ifdef TRACE_ON
 //				string ass = "";
+//#endif
 //				unsigned int last = 0;
 //
 //				for ( last = 0; last < assignments.size( ) && solver.getTruthValue( assignments[ last ].var ) == TRUE; last++ );
@@ -1060,7 +1062,9 @@ PUPHeuristic::makeAChoiceProtected( )
 //					if ( solver.isUndefined( assignments[ i ].var ) )
 //						l.push_back( Literal (assignments[ i ].var, NEGATIVE ) );
 //
+//#ifdef TRACE_ON
 //					ass += VariableNames::getName( assignments[ i ].var ) + ", ";
+//#endif
 //				}
 //
 //				addClause( l );
@@ -1073,7 +1077,7 @@ PUPHeuristic::makeAChoiceProtected( )
 //				//cout << "[redo] ChosenVariable is " << VariableNames::getName( assignments[ 0 ].var ) << endl;
 //				return Literal( assignments[ 0 ].var, POSITIVE );
 //			}
-// needed for pred end
+// check for pred end
 
 			if ( !conflictHandled )
 			{

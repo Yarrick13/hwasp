@@ -33,6 +33,7 @@
 #include "ColouringHeuristic.h"
 #include "BinPackingHeuristic.h"
 #include "CombinedHeuristic.h"
+#include "CCPHeuristic.h"
 #include "outputBuilders/MultiOutputBuilder.h"
 #include "QueryInterface.h"
 
@@ -222,7 +223,7 @@ WaspFacade::setDecisionPolicy(
 				}
 				else
 				{
-					solver.setHeuristic( new PUPHeuristic( solver ) );
+					solver.setHeuristic( new ColouringHeuristic( solver ) );
 				}
 			}
         	break;
@@ -237,10 +238,20 @@ WaspFacade::setDecisionPolicy(
 				}
 				else
 				{
-					solver.setHeuristic( new PUPHeuristic( solver ) );
+					solver.setHeuristic( new BinPackingHeuristic( solver ) );
 				}
         	}
         	break;
+
+        case HEURISTIC_CCP:
+        	{
+				CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+				cbin->addHeuristic( "ccp" );
+				solver.setHeuristic( cbin );
+
+//				solver.setHeuristic( new CCPHeuristic( solver ) );
+			}
+			break;
 
         case HEURISTIC_COMBINED:
         	{
