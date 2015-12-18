@@ -33,6 +33,10 @@ CCPHeuristic::CCPHeuristic(
 {
 }
 
+/*
+ * Processes all variables related to the CPP *
+ * @param v	the variable to process
+ */
 void
 CCPHeuristic::processVariable (
     Var v )
@@ -157,6 +161,9 @@ CCPHeuristic::processVariable (
 	}
 }
 
+/*
+ * initializes the heuristic after reading the input
+ */
 void
 CCPHeuristic::onFinishedParsing (
 	)
@@ -175,13 +182,15 @@ CCPHeuristic::onFinishedParsing (
 	else
 		inputCorrect = false;
 
+#ifdef TRACE_ON
 	if ( inputCorrect )
 	{
 		trace_msg( heuristic, 1, "Start heuristic" );
 	}
-#ifdef TRACE_ON
 	else
+	{
 		trace_msg( heuristic, 1, "Input not correct!" );
+	}
 
 	string vertexOutput = "";
 	for ( unsigned int i = 0; i < vertices.size( ); i++ )
@@ -191,6 +200,9 @@ CCPHeuristic::onFinishedParsing (
 #endif
 }
 
+/*
+ * make a choice for the solver
+ */
 Literal
 CCPHeuristic::makeAChoiceProtected(
 	)
@@ -199,11 +211,15 @@ CCPHeuristic::makeAChoiceProtected(
 
 	bool binChosen = false;
 	bool binSearch = false;
+	unsigned int currentVertexColour;
+	unsigned int currentVertexBin;
 
 	do
 	{
 		chosenVariable = 0;
 		current = 0;
+		currentVertexColour = 0;
+		currentVertexBin = 0;
 
 		if ( index < vertices.size( ) )
 		{
@@ -214,8 +230,8 @@ CCPHeuristic::makeAChoiceProtected(
 
 				if ( index > 0 )
 				{
-					trace_msg( heuristic, 3, "Increase colour value" );
 					currentColour++;
+					trace_msg( heuristic, 3, "Increase colour value to " << ( currentColour + 1 ) );
 
 					if ( currentColour >= nrOfColors )
 					{
@@ -225,6 +241,7 @@ CCPHeuristic::makeAChoiceProtected(
 					}
 				}
 
+				//get next vertex
 				do
 				{
 					trace_msg( heuristic, 3, "Consider vertex " << vertices[ index ].name <<
@@ -249,17 +266,27 @@ CCPHeuristic::makeAChoiceProtected(
 				current = queueGetFirst( );
 			}
 
-			if ( !isVertexColoured( current ) )
+			// check if the vertex is already coloured or colour it otherwise
+			currentVertexColour = getVertexColour( current );
+			if ( currentVertexColour == 0 )
 			{
 				trace_msg( heuristic, 3, "Vertex not coloured - use colour " << ( currentColour + 1 ) <<
 						" (chosen variable is " << current->allColours[ currentColour ]->var << " " <<
 						VariableNames::getName( current->allColours[ currentColour ]->var ) << ")" );
 				chosenVariable = current->allColours[ currentColour ]->var;
 			}
-
-			if ( chosenVariable == 0 )
+			else
 			{
-				trace_msg( heuristic, 3, "Vertex already coloured - find bin" );
+				if ( ( currentVertexColour - 1 ) == currentColour )
+				{
+					trace_msg( heuristic, 3, "Vertex already coloured with colour " << ( currentVertexColour ) << " - find bin" );
+					currentVertexBin = getVertexBin( current );
+				}
+			}
+
+			// find a bin for the vertex if no bin is assigned to it yet
+			if ( chosenVariable == 0 && ( currentVertexColour - 1 ) == currentColour && currentVertexBin == 0 )
+			{
 				binSearch = true;
 
 				for ( unsigned int i = 0; i < nrOfBins && chosenVariable == 0; i++ )
@@ -274,11 +301,24 @@ CCPHeuristic::makeAChoiceProtected(
 				}
 			}
 
+			// check chosen variable
 			if ( chosenVariable == 0 )
 			{
-				if ( binSearch )
+				if ( ( currentVertexColour - 1 ) != currentColour )
+				{
+					trace_msg( heuristic, 3, "Vertex " << current->name << " is not coloured in the current colour - ignore it" );
+					queueEraseFirst( );
+				}
+				else if ( binSearch )
 				{
 					trace_msg( heuristic, 3, "No bin found for vertex " << current->name << " - ignore it" );
+					queueEraseFirst( );
+					current->considered = true;
+				}
+				else if ( currentVertexBin != 0 )
+				{
+					trace_msg( heuristic, 3, "Vertex already placed in bin " << ( currentVertexBin ) );
+					queueAddNeighbours( current );
 					queueEraseFirst( );
 					current->considered = true;
 				}
@@ -295,27 +335,13 @@ CCPHeuristic::makeAChoiceProtected(
 			else if ( solver.getTruthValue( chosenVariable ) == FALSE )
 			{
 				trace_msg( heuristic, 3, "Chosen variable already set to false - continue" );
-				if ( binChosen )
-				{
-					queueEraseFirst( );
-					current->considered = true;
-				}
+				queueEraseFirst( );
 			}
 			else
 			{
 				if ( binChosen )
 				{
-					for ( unsigned int i = 0; i < current->predecessor.size( ); i++ )
-					{
-						if ( !current->predecessor[ i ]->considered )
-							queuePushBack( current->predecessor[ i ] );
-					}
-					for ( unsigned int i = 0; i < current->successors.size( ); i++ )
-					{
-						if ( !current->successors[ i ]->considered )
-							queuePushBack( current->successors[ i ] );
-					}
-
+					queueAddNeighbours( current );
 					queueEraseFirst( );
 					current->considered = true;
 				}
@@ -327,37 +353,43 @@ CCPHeuristic::makeAChoiceProtected(
 	return Literal( chosenVariable, POSITIVE );
 }
 
+/*
+ * debug print
+ */
 void
 CCPHeuristic::print(
 	)
 {
-//	cout << "\n\n" << endl;
-//
-//	for ( BinAssignment ba : binAssignments )
-//	{
-//		if ( solver.getTruthValue( ba.var ) == TRUE )
-//			cout << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) << endl;
-//	}
-//
-//	cout << "\n" << endl;
-//
-//	for ( BinAssignment ba : binAssignments )
-//	{
-//		if ( solver.getTruthValue( ba.var ) == FALSE )
-//			cout << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) << endl;
-//	}
-//
-//	cout << "\n" << endl;
-//
-//	for ( BinAssignment ba : binAssignments )
-//	{
-//		if ( solver.getTruthValue( ba.var ) == UNDEFINED )
-//			cout << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) << endl;
-//	}
-//
-//	cout << "\n\n" << endl;
+	trace_msg( heuristic, 1, "[DEBUG]\n" );
+
+	for ( BinAssignment ba : binAssignments )
+	{
+		if ( solver.getTruthValue( ba.var ) == TRUE )
+			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+	}
+
+	trace_msg( heuristic, 1, "[DEBUG]\n" );
+
+	for ( BinAssignment ba : binAssignments )
+	{
+		if ( solver.getTruthValue( ba.var ) == FALSE )
+			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+	}
+
+	trace_msg( heuristic, 1, "[DEBUG]\n" );
+
+	for ( BinAssignment ba : binAssignments )
+	{
+		if ( solver.getTruthValue( ba.var ) == UNDEFINED )
+			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+	}
+
+	trace_msg( heuristic, 1, "[DEBUG]\n" );
 }
 
+/*
+ * solver found conflict
+ */
 void
 CCPHeuristic::conflictOccurred(
 	)
@@ -365,6 +397,10 @@ CCPHeuristic::conflictOccurred(
 	resetHeuristic( );
 }
 
+/*
+ * add the given vertex to the end of the queue
+ * @param vertex	the vertex to add
+ */
 void
 CCPHeuristic::queuePushBack(
 	Vertex* vertex )
@@ -373,6 +409,10 @@ CCPHeuristic::queuePushBack(
 	queue.push_back( vertex );
 }
 
+/*
+ * returns the first vertex in the queue
+ * @return	the first vertex in the queue
+ */
 CCPHeuristic::Vertex*
 CCPHeuristic::queueGetFirst(
 	)
@@ -382,6 +422,9 @@ CCPHeuristic::queueGetFirst(
 	return front;
 }
 
+/*
+ * removes the first element in the queue
+ */
 void
 CCPHeuristic::queueEraseFirst(
 	)
@@ -390,6 +433,31 @@ CCPHeuristic::queueEraseFirst(
 	queue.erase( queue.begin( ), queue.begin( ) + 1 );
 }
 
+/*
+ * adds all the neighbours from the given vertex to the queue
+ * @param vertex	the vertex
+ */
+void
+CCPHeuristic::queueAddNeighbours(
+	Vertex* vertex )
+{
+	for ( unsigned int i = 0; i < vertex->predecessor.size( ); i++ )
+	{
+		if ( !vertex->predecessor[ i ]->considered )
+			queuePushBack( vertex->predecessor[ i ] );
+	}
+	for ( unsigned int i = 0; i < vertex->successors.size( ); i++ )
+	{
+		if ( !vertex->successors[ i ]->considered )
+			queuePushBack( vertex->successors[ i ] );
+	}
+}
+
+/*
+ * gets the currently used bin size for the given bin with the given colour
+ * @param bin		the bin number
+ * @param colour	the colour number
+ */
 unsigned int
 CCPHeuristic::getUsedBinSize(
 	unsigned int bin,
@@ -406,6 +474,9 @@ CCPHeuristic::getUsedBinSize(
 	return used;
 }
 
+/*
+ * @return	true if the input is correct or false otherwise
+ */
 bool
 CCPHeuristic::checkInput(
 	)
@@ -416,6 +487,9 @@ CCPHeuristic::checkInput(
 	return false;
 }
 
+/*
+ * compares two bins based on the bin number
+ */
 bool
 compareBins (
 	CCPHeuristic::VertexBin* b1,
@@ -424,6 +498,9 @@ compareBins (
 	return b1->bin < b2->bin;
 }
 
+/*
+ * compares two colours based on the colour number
+ */
 bool
 compareColours (
 	CCPHeuristic::VertexColour* c1,
@@ -432,6 +509,9 @@ compareColours (
 	return c1->colour < c2->colour;
 }
 
+/*
+ * initializes the data for the heuristic
+ */
 bool
 CCPHeuristic::initData(
 	)
@@ -585,6 +665,9 @@ CCPHeuristic::initData(
 	return true;
 }
 
+/*
+ * reset the heuristic
+ */
 void
 CCPHeuristic::resetHeuristic(
 	)
@@ -600,15 +683,38 @@ CCPHeuristic::resetHeuristic(
 	queue.clear( );
 }
 
-bool
-CCPHeuristic::isVertexColoured(
+/*
+ * returns the colour of the given vertex
+ * @vertex 	the vertex
+ * @return	a number greater or equal one for the colour of the vertex, or zero if the vertex is not coloured yet
+ */
+unsigned int
+CCPHeuristic::getVertexColour(
 	Vertex* vertex )
 {
 	for ( unsigned int i = 0; i < vertex->allColours.size( ); i++ )
 	{
 		if ( solver.getTruthValue( vertex->allColours[ i ]->var ) == TRUE )
-			return true;
+			return vertex->allColours[ i ]->colour;
 	}
 
-	return false;
+	return 0;
+}
+
+/*
+ * returns the bin of the given vertex
+ * @vertex 	the vertex
+ * @return	a number greater or equal one for the bin of the vertex, or zero if the vertex is not placed in a bin yet
+ */
+unsigned int
+CCPHeuristic::getVertexBin(
+	Vertex* vertex )
+{
+	for ( unsigned int i = 0; i < vertex->allBins.size( ); i++ )
+	{
+		if ( solver.getTruthValue( vertex->allBins[ i ]->var ) == TRUE )
+			return vertex->allBins[ i ]->bin;
+	}
+
+	return 0;
 }

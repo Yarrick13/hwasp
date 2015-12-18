@@ -130,11 +130,13 @@ class CCPHeuristic : public Heuristic
         void queuePushBack( Vertex* vertex );
         Vertex* queueGetFirst ( );
         void queueEraseFirst( );
+        void queueAddNeighbours( Vertex* vertex );
         unsigned int getUsedBinSize( unsigned int bin, unsigned int colour );
 
         void resetHeuristic( );
         void print( );
-        bool isVertexColoured( Vertex* vertex );
+        unsigned int getVertexColour( Vertex* vertex );
+        unsigned int getVertexBin( Vertex* vertex );
 };
 
 #endif
