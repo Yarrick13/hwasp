@@ -248,7 +248,7 @@ CCPHeuristic::makeAChoiceProtected(
 							( ( vertices[ index ].considered == true ) ? " (already considered)" : "" ) );
 					if ( !vertices[ index++ ].considered )
 						current = &vertices[ index - 1 ];
-				} while ( current == 0 );
+				} while ( current == 0 && index < vertices.size( ) );
 
 				if ( current == 0 )
 				{
@@ -360,7 +360,7 @@ void
 CCPHeuristic::print(
 	)
 {
-	trace_msg( heuristic, 1, "[DEBUG]\n" );
+	trace_msg( heuristic, 1, "[DEBUG] Debug output" );
 
 	for ( BinAssignment ba : binAssignments )
 	{
@@ -368,23 +368,17 @@ CCPHeuristic::print(
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
 	}
 
-	trace_msg( heuristic, 1, "[DEBUG]\n" );
-
 	for ( BinAssignment ba : binAssignments )
 	{
 		if ( solver.getTruthValue( ba.var ) == FALSE )
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
 	}
 
-	trace_msg( heuristic, 1, "[DEBUG]\n" );
-
 	for ( BinAssignment ba : binAssignments )
 	{
 		if ( solver.getTruthValue( ba.var ) == UNDEFINED )
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
 	}
-
-	trace_msg( heuristic, 1, "[DEBUG]\n" );
 }
 
 /*
