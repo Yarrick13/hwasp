@@ -202,7 +202,7 @@ WaspFacade::setDecisionPolicy(
         	{
 				if ( heuristic_fallback )
 				{
-					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, NONE );
 					cbin->addHeuristic( "pup" );
 					solver.setHeuristic( cbin );
 				}
@@ -217,7 +217,7 @@ WaspFacade::setDecisionPolicy(
         	{
         		if ( heuristic_fallback )
 				{
-					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, NONE );
 					cbin->addHeuristic( "colouring" );
 					solver.setHeuristic( cbin );
 				}
@@ -232,7 +232,7 @@ WaspFacade::setDecisionPolicy(
         	{
         		if ( heuristic_fallback )
 				{
-					CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+					CombinedHeuristic* cbin = new CombinedHeuristic( solver, NONE );
 					cbin->addHeuristic( "binpacking" );
 					solver.setHeuristic( cbin );
 				}
@@ -245,7 +245,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_CCP:
         	{
-				CombinedHeuristic* cbin = new CombinedHeuristic( solver, false );
+				CombinedHeuristic* cbin = new CombinedHeuristic( solver, TIME, 10 );
 				cbin->addHeuristic( "ccp" );
 				solver.setHeuristic( cbin );
 

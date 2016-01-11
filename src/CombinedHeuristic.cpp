@@ -26,8 +26,8 @@
 
 CombinedHeuristic::CombinedHeuristic(
     Solver& s,
-	bool useTreshold,
-	unsigned int treshold ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold )
+	unsigned int useTreshold,
+	unsigned int treshold ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold ), thReached( 0 )
 {
 	minisat = new MinisatHeuristic( s );
 }
@@ -116,8 +116,11 @@ CombinedHeuristic::makeAChoiceProtected(
 {
 	Literal lit = Literal::null;
 
-	if ( useTh && getTresholdStatistics( ) >= th )
+	if ( useTh != 0 && tresholdReached( useTh, th ) )
+	{
+		trace_msg( heuristic, 1, "Treshold reachead - get next heuristic" );
 		index++;
+	}
 
 	while ( lit == Literal::null && index < heuristics.size( ) )
 	{
@@ -141,6 +144,8 @@ CombinedHeuristic::onFinishedParsing(
 		h->onFinishedParsing( );
 
 	isInputCorrect( );
+
+	start = std::chrono::system_clock::now();
 }
 
 bool
@@ -220,15 +225,52 @@ CombinedHeuristic::onFinishedSolving(
 
 	for ( Heuristic* h : heuristics )
 		h->onFinishedSolving( );
+
+	end = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed_seconds = end-start;
+	cout << "solving time: " << elapsed_seconds.count( ) << endl;
+	cout << "fallback to minisat: " << ( index >= heuristics.size( ) ? "yes" : "no" ) << endl;
+	cout << "treshold reached: " << thReached << " times " << endl;
 }
 
-double
-CombinedHeuristic::getTresholdStatistics(
-	)
+bool
+CombinedHeuristic::tresholdReached(
+	unsigned int useTh,
+	unsigned int th )
 {
-#ifdef STATS_ON
-	return (double) solver.getNumberOfRestarts( ) / solver.getNumberOfChoices( );
-#else
-	return getTreshold( );
-#endif
+	bool reached = true;
+
+	if ( th == TIME )
+	{
+		end = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsed_seconds = end-start;
+		if ( elapsed_seconds.count( ) > th )
+		{
+			reached = true;
+			thReached++;
+		}
+		else
+			reached = false;
+	}
+	else
+	{
+		#ifdef STATS_ON
+			if ( ( (double) solver.getNumberOfRestarts( ) / solver.getNumberOfChoices( ) ) > th )
+			{
+				reached = true;
+				thReached++;
+			}
+			else
+				reached = false;
+		#else
+			if ( getTreshold( ) > th )
+			{
+				reached = true;
+				thReached++;
+			}
+			else
+				reached = false;
+		#endif
+	}
+	return reached;
 }

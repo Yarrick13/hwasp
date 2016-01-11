@@ -34,8 +34,8 @@ class CCPHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero (){  }
         void conflictOccurred( );
         void onFinishedParsing( );
-        unsigned int getTreshold( ){ /*ToDo: getTeshold*/ return 0; }
-        void onFinishedSolving( ){ /*ToDo: onFinishedSolfing*/ };
+        unsigned int getTreshold( ){ return nConflicts; }
+        void onFinishedSolving( ){ cout << "Number of conflict: " << nConflicts << endl; cout << "Number of Choices: " << nChoices << endl; };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
 
@@ -49,6 +49,9 @@ class CCPHeuristic : public Heuristic
         bool inputCorrect;
         unsigned int index;
         unsigned int currentColour;
+
+        unsigned int nConflicts;
+        unsigned int nChoices;
 
     public:
         struct VertexColour
@@ -110,7 +113,36 @@ class CCPHeuristic : public Heuristic
         	Var var;
         };
 
-        Vertex* current;
+        struct Area
+		{
+			string area;
+			Var var;
+
+			bool selected;
+
+			unsigned int total;
+			unsigned int counter;
+		};
+
+        struct EdgeMatching
+        {
+        	string area;
+        	string borderelement;
+        	Var var;
+
+        	Area* realtedArea;
+        };
+
+        struct Borderelement
+		{
+			string element;
+			Var var;
+
+			vector< EdgeMatching* > usedIn;
+		};
+
+        Vertex* currentV;
+        Borderelement* currentBe;
 
         vector< Var > variables;
         vector< Vertex > vertices;
@@ -120,6 +152,9 @@ class CCPHeuristic : public Heuristic
         vector< VertexSize > vertexSizes;
         vector< VertexColour > vertexColours;
         vector< VertexBin > vertexBins;
+        vector< Area > areas;
+        vector< Borderelement > borderelements;
+        vector< EdgeMatching > edgeMatchings;
 
         vector< Vertex* > queue;
 
@@ -137,6 +172,9 @@ class CCPHeuristic : public Heuristic
         void print( );
         unsigned int getVertexColour( Vertex* vertex );
         unsigned int getVertexBin( Vertex* vertex );
+
+        Literal greedyMatching( );
+        Literal greedyCBPC( );
 };
 
 #endif

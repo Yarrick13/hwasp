@@ -19,14 +19,19 @@
 #ifndef COMBINEDHEURISTIC_H
 #define	COMBINEDHEURISTIC_H
 
+#define NONE 0
+#define CONFLICT 1
+#define TIME 2
+
 #include "Heuristic.h"
 #include "Solver.h"
 #include <string>
+#include <chrono>
 
 class CombinedHeuristic : public Heuristic
 {
     public:
-		CombinedHeuristic( Solver& solver, bool useTreshold, unsigned int treshold = 100 );
+		CombinedHeuristic( Solver& solver, unsigned int useTreshold, unsigned int treshold = 100 );
         ~CombinedHeuristic();
         void onNewVariable( Var v );
         void onNewVariableRuntime( Var v );
@@ -50,13 +55,15 @@ class CombinedHeuristic : public Heuristic
     private:
         unsigned int index;
         unsigned int th;
-        bool useTh;
+        unsigned int useTh;
+        unsigned int thReached;
+        std::chrono::time_point<std::chrono::system_clock> start, end;
 
         Heuristic* minisat;
         vector< Heuristic* > heuristics;
         vector< string > heursisticsNames;
 
-        double getTresholdStatistics( );
+        bool tresholdReached( unsigned int useTh, unsigned int th );
 };
 
 #endif
