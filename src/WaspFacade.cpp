@@ -255,7 +255,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_COMBINED:
         	{
-				CombinedHeuristic* combined = new CombinedHeuristic( solver, true, 100 );
+				CombinedHeuristic* combined = new CombinedHeuristic( solver, CONFLICT, 100 );
 				bool found = true;
 
 				vector< string > heuristics;

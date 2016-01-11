@@ -116,7 +116,7 @@ CombinedHeuristic::makeAChoiceProtected(
 {
 	Literal lit = Literal::null;
 
-	if ( useTh != 0 && tresholdReached( useTh, th ) )
+	if ( useTh != NONE && tresholdReached( useTh, th ) )
 	{
 		trace_msg( heuristic, 1, "Treshold reachead - get next heuristic" );
 		index++;
@@ -240,14 +240,13 @@ CombinedHeuristic::tresholdReached(
 {
 	bool reached = true;
 
-	if ( th == TIME )
+	if ( useTh == TIME )
 	{
 		end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end-start;
 		if ( elapsed_seconds.count( ) > th )
 		{
 			reached = true;
-			thReached++;
 		}
 		else
 			reached = false;
@@ -266,11 +265,14 @@ CombinedHeuristic::tresholdReached(
 			if ( getTreshold( ) > th )
 			{
 				reached = true;
-				thReached++;
 			}
 			else
 				reached = false;
 		#endif
 	}
+
+	if ( reached && index < heuristics.size( ) )
+		thReached++;
+
 	return reached;
 }
