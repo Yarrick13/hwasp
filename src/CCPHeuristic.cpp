@@ -246,9 +246,11 @@ Literal
 CCPHeuristic::makeAChoiceProtected(
 	)
 {
-	Literal l = greedyMatching( );
-	if ( l != Literal::null )
-		return l;
+//	Literal l = greedyMatching( );
+//	if ( l != Literal::null )
+//		return l;
+//	return greedyCBPC( );
+
 	return greedyCBPC( );
 }
 

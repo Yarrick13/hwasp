@@ -245,7 +245,7 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_CCP:
         	{
-				CombinedHeuristic* cbin = new CombinedHeuristic( solver, TIME, 10 );
+				CombinedHeuristic* cbin = new CombinedHeuristic( solver, TIME, 20 );
 				cbin->addHeuristic( "ccp" );
 				solver.setHeuristic( cbin );
 
