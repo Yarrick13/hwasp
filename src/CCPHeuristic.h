@@ -34,8 +34,8 @@ class CCPHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero (){  }
         void conflictOccurred( );
         void onFinishedParsing( );
-        unsigned int getTreshold( ){ return nConflicts; }
-        void onFinishedSolving( ){ cout << "Number of conflict: " << nConflicts << endl; cout << "Number of Choices: " << nChoices << endl; };
+        unsigned int getTreshold( ) { return nConflicts; }
+        void onFinishedSolving( ) { cout << "Number of conflict: " << nConflicts << endl; cout << "Number of Choices: " << nChoices << endl; cout << "Number of Iterations: " << nIterations << endl; };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
 
@@ -52,6 +52,9 @@ class CCPHeuristic : public Heuristic
 
         unsigned int nConflicts;
         unsigned int nChoices;
+        unsigned int nIterations;
+
+        bool fallback;
 
     public:
         struct VertexColour

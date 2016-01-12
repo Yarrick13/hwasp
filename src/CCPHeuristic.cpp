@@ -29,7 +29,7 @@
 
 CCPHeuristic::CCPHeuristic(
     Solver& s ) : Heuristic( s ), nrOfColors( 0 ), nrOfBins( 0 ), maxBinSize( 0 ), inputCorrect( true ), index( 0 ), currentColour( 0 ),
-	nConflicts( 0 ), nChoices( 0 ), currentV( 0 ), currentBe( 0 )
+	nConflicts( 0 ), nChoices( 0 ), nIterations( 0 ), fallback( false ), currentV( 0 ), currentBe( 0 )
 {
 }
 
@@ -246,12 +246,20 @@ Literal
 CCPHeuristic::makeAChoiceProtected(
 	)
 {
-//	Literal l = greedyMatching( );
-//	if ( l != Literal::null )
-//		return l;
-//	return greedyCBPC( );
+	if ( !fallback )
+	{
+		Literal l = greedyMatching( );
+		if ( l != Literal::null )
+			return l;
+
+		fallback = true;
+		resetHeuristic( );
+		return greedyCBPC( );
+	}
 
 	return greedyCBPC( );
+
+//	return greedyCBPC( );
 }
 
 Literal
@@ -275,7 +283,8 @@ CCPHeuristic::greedyMatching(
 		if ( index < borderelements.size( ) )
 		{
 			currentBe = &borderelements[ index++ ];
-			trace_msg( heuristic, 2, "Consider " << currentBe->element );
+			trace_msg( heuristic, 2, "[M] Consider " << currentBe->element );
+			//cout << "Consider " << currentBe->element << endl;
 
 			for ( unsigned int i = 0; i < edgeMatchings.size( ); i++ )
 			{
@@ -296,34 +305,43 @@ CCPHeuristic::greedyMatching(
 			{
 				if ( index < borderelements.size( ) )
 				{
-					trace_msg( heuristic, 3, "Chosen variable is 0 - continue with next vertex" );
+					trace_msg( heuristic, 3, "[M] Chosen variable is 0 - continue with next vertex" );
+					//cout << "Chosen variable is 0 - continue with next vertex" << endl;
 				}
 				else
 				{
-					trace_msg( heuristic, 3, "Chosen variable is 0 and no more vertics left - fallback to minisat" );
+					trace_msg( heuristic, 3, "[M] Chosen variable is 0 and no more vertics left - fallback to minisat" );
+					//cout << "Chosen variable is 0 and no more vertics left - fallback to minisat" << endl;
+					onFinishedSolving( );
 					return Literal::null;
 				}
 			}
 			else
 			{
-				trace_msg( heuristic, 3, "Chosen variable is " << VariableNames::getName( chosenVariable) << " (" << chosenVariable << ")" );
+				trace_msg( heuristic, 3, "[M] Chosen variable is " << VariableNames::getName( chosenVariable) << " (" << chosenVariable << ")" );
+				//cout << "Chosen variable is " << VariableNames::getName( chosenVariable) << " (" << chosenVariable << ")" << endl;
 
 				if ( solver.getTruthValue( chosenVariable ) == TRUE )
 				{
-					trace_msg( heuristic, 3, "Chosen variable already set to true - continue" );
-
+					trace_msg( heuristic, 3, "[M] Chosen variable already set to true - continue" );
+					//cout << "Chosen variable already set to true - continue" << endl;
 				}
 				else if ( solver.getTruthValue( chosenVariable ) == FALSE )
 				{
-					trace_msg( heuristic, 3, "Chosen variable already set to false - continue" );
+					trace_msg( heuristic, 3, "[M] Chosen variable already set to false - continue" );
+					//cout << "Chosen variable already set to false - continue" << endl;
 				}
 			}
 		}
 		else
 		{
-			trace_msg( heuristic, 3, "No more vertices left - fallback to minisat" );
+			trace_msg( heuristic, 3, "[M] No more vertices left - fallback to minisat" );
+			//cout << "No more vertices left - fallback to minisat" << endl;
+			onFinishedSolving( );
 			return Literal::null;
 		}
+
+		nIterations++;
 	}
 	while ( chosenVariable == 0 || solver.getTruthValue( chosenVariable ) != UNDEFINED );
 
@@ -357,17 +375,21 @@ CCPHeuristic::greedyCBPC(
 			// if queue empty, get the next vertex of continue with the queue otherwise
 			if ( queue.size( ) == 0 )
 			{
-				trace_msg( heuristic, 2, "Queue empty - get next vertex" );
+				trace_msg( heuristic, 2, "[CBPC] Queue empty - get next vertex" );
+				//cout << "Queue empty - get next vertex" << endl;
 
 				if ( index > 0 )
 				{
 					currentColour++;
-					trace_msg( heuristic, 3, "Increase colour value to " << ( currentColour + 1 ) );
+					trace_msg( heuristic, 3, "[CBPC] Increase colour value to " << ( currentColour + 1 ) );
+					//cout << "Increase colour value to " << ( currentColour + 1 ) << endl;
 
 					if ( currentColour >= nrOfColors )
 					{
-						trace_msg( heuristic, 3, "No more colours availabel - fallback to minisat" );
+						trace_msg( heuristic, 3, "[CBPC] No more colours availabel - fallback to minisat" );
+						//cout << "No more colours availabel - fallback to minisat" << endl;
 						print( );
+						onFinishedSolving( );
 						return Literal::null;
 					}
 				}
@@ -375,16 +397,20 @@ CCPHeuristic::greedyCBPC(
 				//get next vertex
 				do
 				{
-					trace_msg( heuristic, 3, "Consider vertex " << vertices[ index ].name <<
+					trace_msg( heuristic, 3, "[CBPC] Consider vertex " << vertices[ index ].name <<
 							( ( vertices[ index ].considered == true ) ? " (already considered)" : "" ) );
+					//cout << "Consider vertex " << vertices[ index ].name <<
+					//		( ( vertices[ index ].considered == true ) ? " (already considered)" : "" ) << endl;
 					if ( !vertices[ index++ ].considered )
 						currentV = &vertices[ index - 1 ];
 				} while ( currentV == 0 && index < vertices.size( ) );
 
 				if ( currentV == 0 )
 				{
-					trace_msg( heuristic, 3, "No more vertices - fallback to minisat" );
+					trace_msg( heuristic, 3, "[CBPC] No more vertices - fallback to minisat" );
+					//cout << "No more vertices - fallback to minisat" << endl;
 					print( );
+					onFinishedSolving( );
 					return Literal::null;
 				}
 
@@ -392,25 +418,32 @@ CCPHeuristic::greedyCBPC(
 			}
 			else
 			{
-				trace_msg( heuristic, 2, "Get next element in queue" );
-
 				currentV = queueGetFirst( );
+
+				trace_msg( heuristic, 2, "[CBPC] Get next element in queue (" << "Consider vertex " << currentV->name <<
+						( ( currentV->considered == true ) ? " (already considered)" : "" ) << ")" );
+				//cout << "Get next element in queue (" << "Consider vertex " << currentV->name <<
+				//		( ( currentV->considered == true ) ? " (already considered)" : "" ) << ")" << endl;
 			}
 
 			// check if the vertex is already coloured or colour it otherwise
 			currentVertexColour = getVertexColour( currentV );
 			if ( currentVertexColour == 0 )
 			{
-				trace_msg( heuristic, 3, "Vertex not coloured - use colour " << ( currentColour + 1 ) <<
+				trace_msg( heuristic, 3, "[CBPC] Vertex not coloured - use colour " << ( currentColour + 1 ) <<
 						" (chosen variable is " << currentV->allColours[ currentColour ]->var << " " <<
 						VariableNames::getName( currentV->allColours[ currentColour ]->var ) << ")" );
+				//cout << "Vertex not coloured - use colour " << ( currentColour + 1 ) <<
+				//		" (chosen variable is " << currentV->allColours[ currentColour ]->var << " " <<
+				//		VariableNames::getName( currentV->allColours[ currentColour ]->var ) << ")" << endl;
 				chosenVariable = currentV->allColours[ currentColour ]->var;
 			}
 			else
 			{
 				if ( ( currentVertexColour - 1 ) == currentColour )
 				{
-					trace_msg( heuristic, 3, "Vertex already coloured with colour " << ( currentVertexColour ) << " - find bin" );
+					trace_msg( heuristic, 3, "[CBPC] Vertex already coloured with colour " << ( currentVertexColour ) << " - find bin" );
+					//cout << "Vertex already coloured with colour " << ( currentVertexColour ) << " - find bin" << endl;
 					currentVertexBin = getVertexBin( currentV );
 				}
 			}
@@ -424,8 +457,10 @@ CCPHeuristic::greedyCBPC(
 				{
 					if ( getUsedBinSize( i, currentColour ) + currentV->size <= maxBinSize )
 					{
-						trace_msg( heuristic, 3, "Place vertex in bin " << ( i + 1 ) << " (chosen variable is " << currentV->allBins[ i ]->var <<
+						trace_msg( heuristic, 3, "[CBPC] Place vertex in bin " << ( i + 1 ) << " (chosen variable is " << currentV->allBins[ i ]->var <<
 								" " << VariableNames::getName( currentV->allBins[ i ]->var ) << ")" );
+						//cout << "Place vertex in bin " << ( i + 1 ) << " (chosen variable is " << currentV->allBins[ i ]->var <<
+						//		" " << VariableNames::getName( currentV->allBins[ i ]->var ) << ")" << endl;
 						chosenVariable = currentV->allBins[ i ]->var;
 						binChosen = true;
 					}
@@ -437,18 +472,21 @@ CCPHeuristic::greedyCBPC(
 			{
 				if ( ( currentVertexColour - 1 ) != currentColour )
 				{
-					trace_msg( heuristic, 3, "Vertex " << currentV->name << " is not coloured in the current colour - ignore it" );
+					trace_msg( heuristic, 3, "[CBPC] Vertex " << currentV->name << " is not coloured in the current colour - ignore it" );
+					//cout << "Vertex " << currentV->name << " is not coloured in the current colour - ignore it" << endl;
 					queueEraseFirst( );
 				}
 				else if ( binSearch )
 				{
-					trace_msg( heuristic, 3, "No bin found for vertex " << currentV->name << " - ignore it" );
+					trace_msg( heuristic, 3, "[CBPC] No bin found for vertex " << currentV->name << " - ignore it" );
+					//cout << "No bin found for vertex " << currentV->name << " - ignore it" << endl;
 					queueEraseFirst( );
 					currentV->considered = true;
 				}
 				else if ( currentVertexBin != 0 )
 				{
-					trace_msg( heuristic, 3, "Vertex already placed in bin " << ( currentVertexBin ) );
+					trace_msg( heuristic, 3, "[CBPC] Vertex already placed in bin " << ( currentVertexBin ) );
+					//cout << "Vertex already placed in bin " << ( currentVertexBin ) << endl;
 					queueAddNeighbours( currentV );
 					queueEraseFirst( );
 					currentV->considered = true;
@@ -456,7 +494,8 @@ CCPHeuristic::greedyCBPC(
 			}
 			else if ( solver.getTruthValue( chosenVariable ) == TRUE )
 			{
-				trace_msg( heuristic, 3, "Chosen variable already set to true - continue" );
+				trace_msg( heuristic, 3, "[CBPC] Chosen variable already set to true - continue" );
+				//cout << "Chosen variable already set to true - continue" << endl;
 				if ( binChosen )
 				{
 					queueEraseFirst( );
@@ -465,7 +504,8 @@ CCPHeuristic::greedyCBPC(
 			}
 			else if ( solver.getTruthValue( chosenVariable ) == FALSE )
 			{
-				trace_msg( heuristic, 3, "Chosen variable already set to false - continue" );
+				trace_msg( heuristic, 3, "[CBPC] Chosen variable already set to false - continue" );
+				//cout << "Chosen variable already set to false - continue" << endl;
 				queueEraseFirst( );
 			}
 			else
@@ -478,6 +518,8 @@ CCPHeuristic::greedyCBPC(
 				}
 			}
 		}
+
+		nIterations++;
 	}
 	while ( chosenVariable == 0 || solver.getTruthValue( chosenVariable ) != UNDEFINED );
 
@@ -497,19 +539,25 @@ CCPHeuristic::print(
 	for ( BinAssignment ba : binAssignments )
 	{
 		if ( solver.getTruthValue( ba.var ) == TRUE )
+		{
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+		}
 	}
 
 	for ( BinAssignment ba : binAssignments )
 	{
 		if ( solver.getTruthValue( ba.var ) == FALSE )
+		{
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+		}
 	}
 
 	for ( BinAssignment ba : binAssignments )
 	{
 		if ( solver.getTruthValue( ba.var ) == UNDEFINED )
+		{
 			trace_msg( heuristic, 1, "[DEBUG]" << VariableNames::getName( ba.var ) << " is " << solver.getTruthValue( ba.var ) );
+		}
 	}
 }
 
@@ -520,6 +568,7 @@ void
 CCPHeuristic::conflictOccurred(
 	)
 {
+	trace_msg( heuristic, 1, "Conflict occured" );
 	nConflicts++;
 	resetHeuristic( );
 }
@@ -532,7 +581,8 @@ void
 CCPHeuristic::queuePushBack(
 	Vertex* vertex )
 {
-	trace_msg( heuristic, 4, "[queue] push_back: " << vertex->name );
+	trace_msg( heuristic, 4, "[CBPC] [queue] push_back: " << vertex->name );
+	//cout << "[queue] push_back: " << vertex->name << endl;
 	queue.push_back( vertex );
 }
 
@@ -545,7 +595,8 @@ CCPHeuristic::queueGetFirst(
 	)
 {
 	Vertex* front = queue.front( );
-	trace_msg( heuristic, 4, "[queue] get_front: " << front->name );
+	trace_msg( heuristic, 4, "[CBPC] [queue] get_front: " << front->name );
+	//cout << "[queue] get_front: " << front->name << endl;
 	return front;
 }
 
@@ -556,7 +607,8 @@ void
 CCPHeuristic::queueEraseFirst(
 	)
 {
-	trace_msg( heuristic, 4, "[queue] erase_front: " << queue.front( )->name );
+	trace_msg( heuristic, 4, "[CBPC] [queue] erase_front: " << queue.front( )->name );
+	//cout << "[queue] erase_front: " << queue.front( )->name << endl;
 	queue.erase( queue.begin( ), queue.begin( ) + 1 );
 }
 
@@ -609,7 +661,7 @@ CCPHeuristic::checkInput(
 	)
 {
 	if ( vertices.size( ) > 0 && edges.size( ) > 0 && vertexSizes.size( ) > 0 && vertexColours.size( ) > 0 && vertexBins.size( ) > 0 &&
-			maxBinSize != 0 && nrOfBins != 0 && nrOfColors != 0 )
+			maxBinSize != 0 && nrOfBins != 0 && nrOfColors != 0 && areas.size( ) > 0 && borderelements.size( ) > 0 && edgeMatchings.size( ) > 0 )
 		return true;
 	return false;
 }
@@ -827,7 +879,7 @@ void
 CCPHeuristic::resetHeuristic(
 	)
 {
-	trace_msg( heuristic, 1, "Conflict occured - reset heuristic" );
+	trace_msg( heuristic, 1, "Reset heuristic" );
 
 	for ( unsigned int i = 0; i < vertices.size( ); i++ )
 		vertices[ i ].considered = false;
