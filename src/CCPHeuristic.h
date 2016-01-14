@@ -31,7 +31,7 @@ class CCPHeuristic : public Heuristic
         void onLiteralInvolvedInConflict( Literal ){ }
         void onUnrollingVariable( Var ){ }
         void incrementHeuristicValues( Var ){  }
-        void simplifyVariablesAtLevelZero (){  }
+        void simplifyVariablesAtLevelZero( ){  }
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( ) { return nConflicts; }
@@ -43,6 +43,11 @@ class CCPHeuristic : public Heuristic
         };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
+        void reset( )
+        {
+        	resetHeuristic( );
+        	createOrder( );
+        };
 
     protected:
         Literal makeAChoiceProtected();

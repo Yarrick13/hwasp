@@ -27,7 +27,8 @@
 CombinedHeuristic::CombinedHeuristic(
     Solver& s,
 	unsigned int useTreshold,
-	unsigned int treshold ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold ), thReached( 0 )
+	unsigned int treshold,
+	bool alternate ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold ), thReached( 0 ), alt( alternate )
 {
 	minisat = new MinisatHeuristic( s );
 }
@@ -119,7 +120,21 @@ CombinedHeuristic::makeAChoiceProtected(
 	if ( useTh != NONE && tresholdReached( useTh, th ) )
 	{
 		trace_msg( heuristic, 1, "Treshold reached - get next heuristic" );
-		index++;
+		start = std::chrono::system_clock::now();
+
+		if ( index >= heuristics.size( ) )
+		{
+			index = 0;
+			cout << endl << endl << endl << "index: " << index << endl << endl << endl;
+		}
+		else
+		{
+			index++;
+			cout << endl << endl << endl << "index: " << index << endl << endl << endl;
+		}
+
+		if ( index < heuristics.size( ) )
+			heuristics[ index ]->reset( );
 	}
 
 	while ( lit == Literal::null && index < heuristics.size( ) )

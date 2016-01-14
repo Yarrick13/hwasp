@@ -39,6 +39,7 @@ class ColouringHeuristic : public Heuristic
         void onFinishedSolving( ) { };
         bool isInputCorrect( ) { return inputCorrect; };
         bool isCoherent( ) { return coherent; };
+        void reset( ) { };
 
     protected:
         Literal makeAChoiceProtected();

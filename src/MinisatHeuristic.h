@@ -55,6 +55,7 @@ class MinisatHeuristic : public Heuristic
         void onFinishedSolving( ) { };
         bool isInputCorrect( ) { return true; };
         bool isCoherent( ) { return true; };
+        void reset( ) { };
         
     protected:
         virtual Literal makeAChoiceProtected();

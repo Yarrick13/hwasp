@@ -31,7 +31,7 @@
 class CombinedHeuristic : public Heuristic
 {
     public:
-		CombinedHeuristic( Solver& solver, unsigned int useTreshold, unsigned int treshold = 100 );
+		CombinedHeuristic( Solver& solver, unsigned int useTreshold, unsigned int treshold = 100, bool altnerate = false );
         ~CombinedHeuristic();
         void onNewVariable( Var v );
         void onNewVariableRuntime( Var v );
@@ -45,6 +45,7 @@ class CombinedHeuristic : public Heuristic
         void onFinishedSolving( );
         bool isInputCorrect( );
         bool isCoherent( ) { return true; };
+        void reset( ) { };
 
         void addHeuristic( Heuristic* h );
         bool addHeuristic( string h );
@@ -57,6 +58,7 @@ class CombinedHeuristic : public Heuristic
         unsigned int th;
         unsigned int useTh;
         unsigned int thReached;
+        bool alt;
         std::chrono::time_point<std::chrono::system_clock> start, end;
 
         Heuristic* minisat;

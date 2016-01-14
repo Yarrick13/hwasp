@@ -63,6 +63,7 @@ class PUPHeuristic : public Heuristic
         void onFinishedSolving( );
         bool isInputCorrect( ) { return inputCorrect; };
         bool isCoherent( ) { return coherent; };
+        void reset( ) { resetHeuristic( true ); };
 
     protected:
         Literal makeAChoiceProtected();
