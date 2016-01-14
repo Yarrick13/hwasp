@@ -20,3 +20,15 @@ build
 # gprof files
 gmon.out
 gprof.*
+
+# Windows files
+Thumbs.db
+Desktop.ini
+
+# Eclipse project files
+.project
+.cproject
+.settings/
+
+# GDB init file
+.gdbinit
