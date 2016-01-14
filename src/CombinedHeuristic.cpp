@@ -122,19 +122,24 @@ CombinedHeuristic::makeAChoiceProtected(
 		trace_msg( heuristic, 1, "Treshold reached - get next heuristic" );
 		start = std::chrono::system_clock::now();
 
-		if ( index >= heuristics.size( ) )
+		if ( alt )
 		{
-			index = 0;
-			cout << endl << endl << endl << "index: " << index << endl << endl << endl;
+			if ( index >= heuristics.size( ) )
+			{
+				index = 0;
+			}
+			else
+			{
+				index++;
+			}
+
+			if ( index < heuristics.size( ) )
+				heuristics[ index ]->reset( );
 		}
 		else
 		{
 			index++;
-			cout << endl << endl << endl << "index: " << index << endl << endl << endl;
 		}
-
-		if ( index < heuristics.size( ) )
-			heuristics[ index ]->reset( );
 	}
 
 	while ( lit == Literal::null && index < heuristics.size( ) )
