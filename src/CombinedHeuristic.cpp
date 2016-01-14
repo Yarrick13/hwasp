@@ -118,7 +118,7 @@ CombinedHeuristic::makeAChoiceProtected(
 
 	if ( useTh != NONE && tresholdReached( useTh, th ) )
 	{
-		trace_msg( heuristic, 1, "Treshold reachead - get next heuristic" );
+		trace_msg( heuristic, 1, "Treshold reached - get next heuristic" );
 		index++;
 	}
 

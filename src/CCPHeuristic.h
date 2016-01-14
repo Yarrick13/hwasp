@@ -35,7 +35,12 @@ class CCPHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( ) { return nConflicts; }
-        void onFinishedSolving( ) { cout << "Number of conflict: " << nConflicts << endl; cout << "Number of Choices: " << nChoices << endl; cout << "Number of Iterations: " << nIterations << endl; };
+        void onFinishedSolving( )
+        {
+        	cout << "Number of conflict: " << nConflicts << endl;
+        	cout << "Number of Choices: " << nChoices << endl;
+        	cout << "Number of Iterations: " << nIterations << endl;
+        };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
 
@@ -71,7 +76,6 @@ class CCPHeuristic : public Heuristic
         	Var var;
         };
 
-    private:
         struct Vertex
 		{
         	string name;
@@ -79,13 +83,18 @@ class CCPHeuristic : public Heuristic
         	unsigned int size;
 
         	bool considered;
+        	unsigned int orderingValue;
+        	bool inOrder;
+        	unsigned int inPath;			// 0 for no path or >1 for the number of the path
 
-        	vector< Vertex* > predecessor;
-        	vector< Vertex* > successors;
+        	vector< Vertex* > neighbours;
+        	unsigned int nPredecessors;
+        	unsigned int nSuccessors;
         	vector< VertexColour* > allColours;
         	vector< VertexBin* > allBins;
 		};
 
+    private:
         struct VertexSize
 		{
 			string vertex;
@@ -158,7 +167,11 @@ class CCPHeuristic : public Heuristic
         vector< Area > areas;
         vector< Borderelement > borderelements;
         vector< EdgeMatching > edgeMatchings;
+        vector< string > path1;
+        vector< string > path2;
 
+        vector< Vertex* > startingVertices;
+        vector< Vertex* > order;
         vector< Vertex* > queue;
 
         void processVariable( Var v );
@@ -172,6 +185,7 @@ class CCPHeuristic : public Heuristic
         unsigned int getUsedBinSize( unsigned int bin, unsigned int colour );
 
         void resetHeuristic( );
+        bool createOrder( );
         void print( );
         unsigned int getVertexColour( Vertex* vertex );
         unsigned int getVertexBin( Vertex* vertex );
