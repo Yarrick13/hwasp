@@ -29,7 +29,7 @@
 
 CCPHeuristic::CCPHeuristic(
     Solver& s ) : Heuristic( s ), nrOfColors( 0 ), nrOfBins( 0 ), maxBinSize( 0 ), inputCorrect( true ), index( 0 ), currentColour( 0 ),
-	nConflicts( 0 ), nChoices( 0 ), nIterations( 0 ), fallback( false ), currentV( 0 ), currentBe( 0 )
+	nConflicts( 0 ), nChoices( 0 ), nIterations( 0 ), fallback( false ), orderingValid( false ), currentV( 0 ), currentBe( 0 )
 {
 }
 
@@ -376,6 +376,9 @@ CCPHeuristic::greedyCBPC(
 
 	do
 	{
+		if ( !orderingValid )
+			return Literal::null;
+
 		chosenVariable = 0;
 		currentV = 0;
 		currentVertexColour = 0;
@@ -973,7 +976,7 @@ CCPHeuristic::initData(
 		order.push_back( &vertices[ i ] );
 
 	resetHeuristic( );
-	createOrder( );
+	orderingValid = createOrder( );
 
 	return true;
 }

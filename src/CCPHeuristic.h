@@ -45,8 +45,9 @@ class CCPHeuristic : public Heuristic
         bool isCoherent( ){ return true; }
         void reset( )
         {
+        	unrollHeuristic( );
         	resetHeuristic( );
-        	createOrder( );
+        	orderingValid = createOrder( );
         };
 
     protected:
@@ -65,6 +66,7 @@ class CCPHeuristic : public Heuristic
         unsigned int nIterations;
 
         bool fallback;
+        bool orderingValid;
 
     public:
         struct VertexColour
