@@ -29,12 +29,14 @@
 #include <iostream>
 using namespace std;
 class Solver;
+class Clause;
 
 struct ActivityComparator
 {
     const Vector< Activity >&  act;
-    bool operator()( Var x, Var y ) const { assert( x < act.size() && y < act.size() ); return act[ x ] > act[ y ]; }
-    ActivityComparator( const Vector< Activity >& a ) : act( a ) {}
+    const Vector< unsigned int >&  factors;
+    bool operator()( Var x, Var y ) const { assert( x < act.size() && y < act.size() ); assert( act.size() == factors.size() ); return act[ x ] * factors[ x ] > act[ y ] * factors[ y ]; }
+    ActivityComparator( const Vector< Activity >& a, const Vector< unsigned int >& f ) : act( a ), factors( f ) {}
 };
 
 class MinisatHeuristic : public HeuristicStrategy
@@ -55,7 +57,7 @@ class MinisatHeuristic : public HeuristicStrategy
         inline void addedVarName( Var, const string& ) {}
         inline void onDeletion() {}
         inline void onFinishedParsing() {}        
-        inline void onLearningClause( unsigned int, unsigned int ) {}
+        inline void onLearningClause( unsigned int, const Clause* ) {}
         inline void onLitAtLevelZero( Literal ) {}
         inline void onLitInLearntClause( Literal ) {}
         inline void onRestart() {}
@@ -63,9 +65,18 @@ class MinisatHeuristic : public HeuristicStrategy
         inline void onStartingSolver( unsigned int, unsigned int ) {}
         inline void onVariableElimination( Var ) {}
         inline void onStartingParsing() {}
+        inline void onStartingSimplifications() {}
+        inline void onUnfoundedSet( const Vector< Var >& ) {}
+        inline void onLoopFormula( const Clause* ) {}
+        inline void onNewClause( const Clause* ) {}
+        inline void onNewBinaryClause( Literal, Literal ) {}
         
+        inline void init( Var v, unsigned int value );
+        inline void setFactor( Var v, unsigned int factor );
+        inline void setSign( int lit );
+
     protected:
-        Literal makeAChoiceProtected();        
+        Literal makeAChoiceProtected();
         
     private:        
         inline void rescaleActivity();
@@ -79,17 +90,51 @@ class MinisatHeuristic : public HeuristicStrategy
         Activity variableDecay;
         
         Vector< Activity > act;
-        
-        vector< Var > vars;
+        Vector< unsigned int > factors;
+        Vector< unsigned int > signs;
+        vector< Var > vars;        
 
         Var chosenVariable;
         Heap< ActivityComparator > heap;        
 };
 
 MinisatHeuristic::MinisatHeuristic( Solver& s ) :
-    HeuristicStrategy( s ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act ) )
+    HeuristicStrategy( s ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act, factors ) )
 {
     act.push_back( 0.0 );
+    factors.push_back( 1 );
+    signs.push_back( UINT_MAX );
+}
+
+void
+MinisatHeuristic::init(
+    Var v,
+    unsigned int value )
+{
+    assert( v < act.size() );
+    act[ v ] = value;
+    if( heap.inHeap( v ) )
+        heap.decrease( v );
+}
+
+void
+MinisatHeuristic::setFactor(
+    Var v,
+    unsigned int factor )
+{
+    assert( v < factors.size() );
+    factors[ v ] = factor;
+    if( heap.inHeap( v ) )
+        heap.decrease( v );
+}
+
+void
+MinisatHeuristic::setSign(
+    int lit )
+{
+    Var v = lit > 0 ? lit : -lit;
+    assert( v < signs.size() );
+    signs[ v ] = lit > 0 ? POSITIVE : NEGATIVE;
 }
 
 void
@@ -120,6 +165,8 @@ MinisatHeuristic::onNewVariable(
 {    
     act.push_back( 0.0 );
     vars.push_back( v );
+    factors.push_back( 1 );
+    signs.push_back( UINT_MAX );
 }
 
 void

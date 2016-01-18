@@ -20,29 +20,49 @@
 #define EXTERNALHEURISTIC_H
 
 #define method_addedVarName "addedVarName"
-#define method_onConflict "onConflict"
-#define method_onDeletion "onDeletion"
+
+//Preprocessing
+#define method_onStartingParsing "onStartingParsing"
 #define method_onFinishedParsing "onFinishedParsing"
+#define method_onStartingSimplifications "onStartingSimplifications"
 #define method_onFinishedSimplifications "onFinishedSimplifications"
+#define method_onVariableElimination "onVariableElimination"
+
+//Learning
+#define method_onConflict "onConflict"
+#define method_onLitInvolvedInConflict "onLitInvolvedInConflict"
 #define method_onLearningClause "onLearningClause"
 #define method_onLitAtLevelZero "onLitAtLevelZero"
-#define method_onLitInvolvedInConflict "onLitInvolvedInConflict"
-#define method_onLitInLearntClause "onLitInLearntClause"
+#define method_onLitInImportantClause "onLitInImportantClause"
+//#define method_onLitInLearntClause "onLitInLearntClause"
+
+//Solving
+#define method_onNewClause "onNewClause"
+#define method_onStartingSolver "onStartingSolver"
+#define method_onDeletion "onDeletion"
 #define method_onRestart "onRestart"
 #define method_onAnswerSet "onAnswerSet"
-#define method_onStartingSolver "onStartingSolver"
-#define method_onLitInImportantClause "onLitInImportantClause"
-#define method_fallback "fallback"
-#define method_onVariableElimination "onVariableElimination"
 #define method_onUnrollingVariable "onUnrollingVariable"
-#define method_onStartingParsing "onStartingParsing"
 
+//Choice
 #define method_choiceVars "choiceVars"
 #define method_onChoiceContradictory "onChoiceContradictory"
 #define method_ignorePolarity "ignorePolarity"
 #define method_partialInterpretation "partialInterpretation"
 
+//ASP
+#define method_onUnfoundedSet "onUnfoundedSet"
+#define method_onLoopFormula "onLoopFormula"
+
+//Fallback
+#define method_fallback "fallback"
+#define method_initFallback "initFallback"
+#define method_factorFallback "factorFallback"
+#define method_signFallback "signFallback"
+
 #define error_choicevars "Method " method_choiceVars " is not well-formed: see the documentation for more information"
+#define error_initfallback "Method " method_initFallback " is not well-formed: see the documentation for more information"
+#define error_factorfallback "Method " method_factorFallback " is not well-formed: see the documentation for more information"
 
 #include "interpreters/Interpreter.h"
 #include "HeuristicStrategy.h"
@@ -58,10 +78,9 @@ class ExternalHeuristic : public HeuristicStrategy
         void onDeletion();
         void onFinishedParsing();
         void onFinishedSimplifications();
-        void onLearningClause( unsigned int lbd, unsigned int size );
+        void onLearningClause( unsigned int lbd, const Clause* clause );
         void onLitAtLevelZero( Literal lit );
         void onLitInvolvedInConflict( Literal lit );
-        void onLitInLearntClause( Literal lit );
         void onRestart();
         void onAnswerSet();
         void onStartingSolver( unsigned int nVars, unsigned int nClauses );
@@ -69,8 +88,16 @@ class ExternalHeuristic : public HeuristicStrategy
         void onVariableElimination( Var var );
         void onUnrollingVariable( Var v );
         void onStartingParsing();
-
+        void onStartingSimplifications();
+        void onUnfoundedSet( const Vector< Var >& unfoundedSet );
+        void onLoopFormula( const Clause* clause );
+        void onNewClause( const Clause* clause );
+        void onNewBinaryClause( Literal lit1, Literal lit2 );
         
+        void initFallback();
+        void factorFallback();
+        void signFallback();
+
         void onNewVariable( Var v )
         {
             if( minisatHeuristic )
@@ -105,6 +132,7 @@ class ExternalHeuristic : public HeuristicStrategy
         bool check_onConflict;
         bool check_onDeletion;
         bool check_onFinishedParsing;
+        bool check_onStartingSimplifications;
         bool check_onFinishedSimplifications;
         bool check_onLearningClause;
         bool check_onLitAtLevelZero;
@@ -117,6 +145,12 @@ class ExternalHeuristic : public HeuristicStrategy
         bool check_onVariableElimination;
         bool check_onUnrollingVariable;
         bool check_onStartingParsing;
+        bool check_onUnfoundedSet;
+        bool check_onLoopFormula;
+        bool check_initFallback;
+        bool check_factorFallback;
+        bool check_signFallback;
+        bool check_onNewClause;
         
         vector< int > choices;
         int status;
