@@ -78,7 +78,7 @@ SCRIPT_CFLAGS = $(scriptsc.$(SCRIPT))
 SCRIPT_LDFLAGS = $(scriptsld.$(SCRIPT))
 CXX_SCRIPTS = $(cxxscripts.$(SCRIPT))
 
-SRCS = $(wildcard $(SOURCE_DIR)/*.cpp) $(wildcard $(SOURCE_DIR)/**/*.cpp)
+SRCS = $(wildcard $(SOURCE_DIR)/*.cpp) $(wildcard $(SOURCE_DIR)/**/*.cpp) $(wildcard $(SOURCE_DIR)/**/**/*.cpp)
 OBJS = $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%.o, $(SRCS))
 DEPS = $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%.d, $(SRCS))
 

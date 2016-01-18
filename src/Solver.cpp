@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <stdint.h>
 #include <vector>
+#include <ctime>
 using namespace std;
 
 vector< Clause* > Solver::learnedFromAllSolvers;

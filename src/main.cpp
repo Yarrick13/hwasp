@@ -19,6 +19,11 @@
 #include <cstdlib>
 #include <csignal>
 
+//required for mingw
+#ifndef SIGXCPU
+#define SIGXCPU 24
+#endif
+
 #include "WaspFacade.h"
 #include "util/Options.h"
 using namespace std;
