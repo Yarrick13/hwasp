@@ -42,7 +42,7 @@ class CombinedHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( );
-        void onFinishedSolving( );
+        void onFinishedSolving( bool fromSolver );
         bool isInputCorrect( );
         bool isCoherent( ) { return true; };
         void reset( ) { };
@@ -58,8 +58,9 @@ class CombinedHeuristic : public Heuristic
         unsigned int th;
         unsigned int useTh;
         unsigned int thReached;
+        unsigned int nConflicts;
         bool alt;
-        std::chrono::time_point<std::chrono::system_clock> start, end;
+        std::chrono::time_point<std::chrono::system_clock> start, starttime, end;
 
         Heuristic* minisat;
         vector< Heuristic* > heuristics;

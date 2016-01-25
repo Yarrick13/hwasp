@@ -28,7 +28,7 @@ CombinedHeuristic::CombinedHeuristic(
     Solver& s,
 	unsigned int useTreshold,
 	unsigned int treshold,
-	bool alternate ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold ), thReached( 0 ), alt( alternate )
+	bool alternate ) : Heuristic( s ), index( 0 ), th( treshold ), useTh( useTreshold ), thReached( 0 ), nConflicts( 0 ), alt( alternate )
 {
 	minisat = new MinisatHeuristic( s );
 }
@@ -105,10 +105,16 @@ void
 CombinedHeuristic::conflictOccurred(
 	)
 {
-	if ( index < heuristics.size( ) )
-		heuristics[ index ]->conflictOccurred( );
+	nConflicts++;
 
-	minisat->conflictOccurred( );
+	if ( index < heuristics.size( ) )
+	{
+		heuristics[ index ]->conflictOccurred( );
+	}
+	else
+	{
+		minisat->conflictOccurred( );
+	}
 }
 
 Literal
@@ -121,6 +127,17 @@ CombinedHeuristic::makeAChoiceProtected(
 	{
 		trace_msg( heuristic, 1, "Treshold reached - get next heuristic" );
 		start = std::chrono::system_clock::now();
+
+		if ( index < heuristics.size( ) )
+		{
+			cout << heursisticsNames[ index ] << " conflicts: " << nConflicts << endl;
+			heuristics[ index ]->onFinishedSolving( false );
+		}
+		else
+		{
+			cout << "minisat conflicts: " << nConflicts << endl;
+		}
+		nConflicts = 0;
 
 		if ( alt )
 		{
@@ -146,7 +163,10 @@ CombinedHeuristic::makeAChoiceProtected(
 	{
 		lit = heuristics[ index ]->makeAChoice( );
 		if ( lit == Literal::null )
+		{
 			index++;
+			nConflicts = 0;
+		}
 		else
 			return lit;
 	}
@@ -165,6 +185,7 @@ CombinedHeuristic::onFinishedParsing(
 
 	isInputCorrect( );
 
+	starttime = std::chrono::system_clock::now();
 	start = std::chrono::system_clock::now();
 }
 
@@ -219,7 +240,7 @@ CombinedHeuristic::addHeuristic(
 	else if ( h == "ccp" )
 	{
 		heuristics.push_back( new CCPHeuristic( solver ) );
-		heursisticsNames.push_back( "ccp packing heuristic" );
+		heursisticsNames.push_back( "ccp heuristic" );
 	}
 	else
 		return false;
@@ -239,15 +260,15 @@ CombinedHeuristic::getTreshold(
 
 void
 CombinedHeuristic::onFinishedSolving(
-	)
+	bool fromSolving )
 {
-	minisat->onFinishedSolving( );
+	minisat->onFinishedSolving( fromSolving );
 
 	for ( Heuristic* h : heuristics )
-		h->onFinishedSolving( );
+		h->onFinishedSolving( fromSolving );
 
 	end = std::chrono::system_clock::now();
-	std::chrono::duration<double> elapsed_seconds = end-start;
+	std::chrono::duration<double> elapsed_seconds = end-starttime;
 	cout << "solving time: " << elapsed_seconds.count( ) << endl;
 	cout << "fallback to minisat: " << ( index >= heuristics.size( ) ? "yes" : "no" ) << endl;
 	cout << "treshold reached: " << thReached << " times " << endl;

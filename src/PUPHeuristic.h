@@ -60,10 +60,17 @@ class PUPHeuristic : public Heuristic
         void simplifyVariablesAtLevelZero() { };
         void conflictOccurred( );
         unsigned int getTreshold( ){ return sNumberOfConflicts; };
-        void onFinishedSolving( );
+        void onFinishedSolving( bool );
         bool isInputCorrect( ) { return inputCorrect; };
         bool isCoherent( ) { return coherent; };
-        void reset( ) { resetHeuristic( true ); };
+        void reset( )
+        {
+        	sNumberOfConflicts = 0;
+        	sNumberOfOrdersCreated = 0;
+        	sNumberOfRecommendations = 0;
+        	sNumberOfOrderMaxReached = 0;
+        	resetHeuristic( true );
+        };
 
     protected:
         Literal makeAChoiceProtected();

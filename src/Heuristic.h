@@ -42,7 +42,7 @@ class Heuristic
         virtual void simplifyVariablesAtLevelZero( ) = 0;
         virtual void conflictOccurred( ) = 0;
         virtual unsigned int getTreshold( ) = 0;
-        virtual void onFinishedSolving( ) = 0;
+        virtual void onFinishedSolving( bool fromSolver ) = 0;
         virtual bool isInputCorrect( ) = 0;
         virtual bool isCoherent( ) = 0;
         virtual void reset( ) = 0;

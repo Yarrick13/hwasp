@@ -559,7 +559,6 @@ PUPHeuristic::createOrder (
 	startAt++;
 
 	trace_msg( heuristic, 3, "Considering order " + orderOutput );
-	//cout << "Considering order " << orderOutput << endl;
 
 	return true;
 }
@@ -616,7 +615,6 @@ PUPHeuristic::getPredecessorUnits(
 	node->untriedPredecessorUnits.clear( );
 
 	trace_msg( heuristic, 3, "[pred] get predecessor units for " << ( ( node->type == ZONE ) ? "zone " : "sensor " ) << node->name );
-	//cout << "[pred] get pred for " << ( ( node->type == ZONE ) ? "zone " : "sensor " ) << node->name << endl;
 	for ( Node* pred_distance_1 : node->connectedNodes )
 	{
 		if ( pred_distance_1->currentOrderPosition < node->currentOrderPosition &&
@@ -640,7 +638,6 @@ PUPHeuristic::getPredecessorUnits(
 	for ( Pu* pred : node->untriedPredecessorUnits )
 		predOutput += "unit " + pred->name + ", ";
 	trace_msg( heuristic, 4, "[pred] predecessor units: " + predOutput );
-	//cout << "[pred] predecessor units: " + predOutput << endl;
 #endif
 }
 
@@ -853,7 +850,6 @@ PUPHeuristic::makeAChoiceProtected( )
 //			shrinkingIndex = 0;
 //
 //			trace_msg( heuristic, 2, "All partner units are used -> shrink solution" );
-//			cout << "All partner units are used -> shrink solution" << endl;
 //
 //			shrink( &shrinked, &falseInAS, &removed, &notUsed );
 //
@@ -861,7 +857,6 @@ PUPHeuristic::makeAChoiceProtected( )
 //			{
 //				shrinkingPossible = false;
 //				trace_msg( heuristic, 2, "[shrink] no units were removed -> last shrinking for this order or until conflict occurs" );
-//				cout << "[shrink] no units were removed -> last shrinking for this order or until conflict occurs" << endl;
 //			}
 //
 //			resetHeuristic( false );
@@ -869,7 +864,6 @@ PUPHeuristic::makeAChoiceProtected( )
 //			redoAfterShrinking = true;
 //
 //			trace_msg( heuristic, 2, "[shrink] start shrinking" );
-//			cout << "[shrink] start shrinking" << endl;
 //	}
 //
 //	if ( redoAfterShrinking && conflictHandled )
@@ -881,26 +875,22 @@ PUPHeuristic::makeAChoiceProtected( )
 //			if ( solver.isUndefined( chosenVariable ) )
 //			{
 //				trace_msg( heuristic, 3, "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) );
-//				cout << "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) << endl;
 //				return Literal( chosenVariable, POSITIVE );
 //			}
 //			else if ( solver.getTruthValue( chosenVariable ) == FALSE )
 //			{
 //				trace_msg( heuristic, 3, "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) << " (already set to false -> shrinked partial solution not possible)" );
-//				cout << "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) << " (already set to false -> shrinked partial solution not possible)" << endl;
 //				conflictHandled = false;
 //			}
 //			else if ( solver.getTruthValue( chosenVariable ) == TRUE )
 //			{
 //				trace_msg( heuristic, 3, "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) << " (already set to true)" );
-//				cout << "[shrink] ChosenVariable is " << VariableNames::getName( chosenVariable ) << " (already set to true)" << endl;
 //			}
 //		}
 //
 //		if ( conflictHandled )
 //		{
 //			trace_msg( heuristic, 2, "[shrink] Shrinking successful" );
-//			cout << "[shrink] Shrinking successful" << endl;
 //		}
 //		redoAfterShrinking = false;
 //		chosenVariable = 0;
@@ -916,7 +906,6 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( solver.isUndefined( chosenVariable ) )
 			{
 				trace_msg( heuristic, 3, "[redo] ChosenVariable is " << VariableNames::getName( chosenVariable ) );
-				//cout << "[redo] ChosenVariable is " << VariableNames::getName( chosenVariable ) << endl;
 				return Literal( chosenVariable, POSITIVE );
 			}
 		}
@@ -928,7 +917,6 @@ PUPHeuristic::makeAChoiceProtected( )
 	if ( solutionFound )
 	{
 		trace_msg( heuristic, 2, "Looking for other solution - reset heuristic" );
-		//cout << "Looking for other solution - reset heuristic" << endl;
 
 		startAt = 0;
 		index = 0;
@@ -955,7 +943,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		resetHeuristic( true );
 
 		trace_msg( heuristic, 2, "Adding constraint to avoid previous solution" );
-		//cout << "Adding constraint to avoid previous solution" << endl;
 
 		vector< Literal > l;
 		for ( Pu pu : partnerUnits )
@@ -977,7 +964,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		if ( !coherent )
 		{
 			trace_msg( heuristic, 4, "Heuristic can not find a solution" );
-			//cout << "Heuristic can not find a solution" << endl;
 			sFallback = 2;
 			return Literal::null;
 		}
@@ -992,7 +978,6 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( index >= order.size( ) )
 			{
 				trace_msg( heuristic, 3, "All zones/sensors considered but no solution found - check assignments" );
-				//cout << "All zones/sensors considered but no solution found - check assignments" << endl;
 				sNumberOfOrderMaxReached++;
 
 				// check if all assignments are true
@@ -1034,7 +1019,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				else
 				{
 					trace_msg( heuristic, 4, "solution not correct - reset" );
-					//cout << "solution not correct - reset" << endl;
 				}
 			}
 
@@ -1043,7 +1027,6 @@ PUPHeuristic::makeAChoiceProtected( )
 //			if ( !checkPartialAssignment( ) )
 //			{
 //				trace_msg( heuristic, 3, "Solution not possible with current partial assignment (circle detected)" );
-//				//cout << "Solution not possible with current partial assignment (circle detected)" << endl;
 //
 //#ifdef TRACE_ON
 //				string ass = "";
@@ -1071,10 +1054,8 @@ PUPHeuristic::makeAChoiceProtected( )
 //
 //				redoAfterAddingConstraint = true;
 //				trace_msg( heuristic, 3, "[redo] Not possible: " << ass );
-//				//cout << "[redo] Not possible: " << ass << endl;
 //
 //				trace_msg( heuristic, 3, "[redo] ChosenVariable is " << VariableNames::getName( assignments[ 0 ].var ) );
-//				//cout << "[redo] ChosenVariable is " << VariableNames::getName( assignments[ 0 ].var ) << endl;
 //				return Literal( assignments[ 0 ].var, POSITIVE );
 //			}
 // check for pred end
@@ -1084,7 +1065,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( redoAfterShrinking )
 				{
 					trace_msg( heuristic, 2, "Shrinking failed. Continue" );
-					cout << "Shrinking failed. Continue" << endl;
 				}
 
 				redoAfterAddingConstraint = false;
@@ -1104,7 +1084,6 @@ PUPHeuristic::makeAChoiceProtected( )
 						index = pos;
 						order[ pos ]->resetTo++;
 						trace_msg( heuristic, 4, "Reset index to " << ( ( order[ pos ]->type == ZONE ) ? "zone " : "sensor " ) << order[ pos ]->name << " ( index " << pos << " ) due to conflict" );
-						//cout << "Reset index to " << ( ( order[ pos ]->type == ZONE ) ? "zone " : "sensor " ) << order[ pos ]->name << " ( index " << pos << " ) due to conflict" << endl;
 					}
 					else
 						assignments[ pos ].currentPu->isUsed = true;
@@ -1115,7 +1094,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( index == ( assignments.size( ) - 1 ) )
 				{
 					computePredecessorUnits = false;
-					//cout << "reset to current" << endl;
 				}
 
 				// pop assignments for zones/sensor after the current index
@@ -1132,7 +1110,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				current = order[ index++ ];
 
 				trace_msg( heuristic, 2, "Consider " << ( ( current->type == ZONE ) ? "zone " : "sensor " ) << current->name );
-				//cout << "Consider " << ( ( current->type == ZONE ) ? "zone " : "sensor " ) << current->name << endl;
 
 				if ( current->ignore )
 				{
@@ -1148,7 +1125,6 @@ PUPHeuristic::makeAChoiceProtected( )
 					}
 
 					trace_msg( heuristic, 3, "This zone/sensor will be ignored - get next one" );
-					//cout << "This zone/sensor will be ignored - get next one" << endl;
 				}
 			}
 			while ( current->ignore );
@@ -1165,9 +1141,6 @@ PUPHeuristic::makeAChoiceProtected( )
 					trace_msg( heuristic, 3, "Node " << current->name << " is already assigned with "
 							                         << za->var << " " << Literal(za->var, POSITIVE)
 							                         << " -> continue with next zone/sensor" );
-					//cout << "Node " << current->name << " is already assigned with "
-					//								 << za->var << " " << Literal(za->var, POSITIVE)
-					//								 << " -> continue with next zone/sensor" << endl;
 
 					getPu( za->var, &pu );
 					searchAndAddAssignment( current, za->var, pu, false );
@@ -1196,7 +1169,6 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( chosenVariable != 0 )
 			{
 				trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (predecessor unit)" );
-				//cout << "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (predecessor unit)" << endl;
 				searchAndAddAssignment( current, chosenVariable, pu, false );
 			}
 
@@ -1207,7 +1179,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( chosenVariable != 0 )
 				{
 					trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (new unit)" );
-					//cout << "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (new unit)" << endl;
 					searchAndAddAssignment( current, chosenVariable, pu, true );
 				}
 			}
@@ -1220,7 +1191,6 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( chosenVariable != 0 )
 				{
 					trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (used unit)" );
-					//cout << "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (used unit)" << endl;
 					searchAndAddAssignment( current, chosenVariable, pu, false );
 				}
 			}
@@ -1266,7 +1236,6 @@ PUPHeuristic::makeAChoiceProtected( )
 			if ( chosenVariable == 0 )
 			{
 				trace_msg( heuristic, 3, "Chosen variable is zero" );
-				//cout << "Chosen variable is zero" << endl;
 
 				if ( index > 1 )
 				{
@@ -1294,21 +1263,18 @@ PUPHeuristic::makeAChoiceProtected( )
 
 						redoAfterAddingConstraint = true;
 						trace_msg( heuristic, 3, "Not possible: " << ass );
-						//cout << "Not possible: " << ass << endl;
 
 						return Literal( assignments[ 0 ].var, POSITIVE );
 					}
 					else
 					{
 						trace_msg( heuristic, 3, "Can not add constraint with single literal -> create new order" );
-						//cout << "Can not add constraint with single literal -> create new order" << endl;
 						coherent = resetHeuristic( true );
 					}
 				}
 				else
 				{
 					trace_msg( heuristic, 3, "No solution for current order -> create new order" );
-					//cout << "No solution for current order -> create new order" << endl;
 					coherent = resetHeuristic( true );
 				}
 			}
@@ -1317,14 +1283,12 @@ PUPHeuristic::makeAChoiceProtected( )
 				if ( solver.getTruthValue( chosenVariable ) == FALSE )
 				{
 					trace_msg( heuristic, 4, "Chosen variable is already set to FALSE - try another assignment" );
-					//cout << "Chosen variable is already set to FALSE - try another assignment" << endl;
 					index--;
 					sAlreadyFalse++;
 				}
 				if ( solver.getTruthValue( chosenVariable ) == TRUE )
 				{
 					trace_msg( heuristic, 4, "Chosen variable is already set to TRUE - continue with next zone/sensor" );
-					//cout << "Chosen variable is already set to TRUE - continue with next zone/sensor" << endl;
 					sAlreadyTrue++;
 					computePredecessorUnits = true;
 
@@ -1335,7 +1299,6 @@ PUPHeuristic::makeAChoiceProtected( )
 		else
 		{
 			trace_msg( heuristic, 2, "Restart heuristic (to much resets to " << ( current->type == ZONE ? "zone " : "sensor" ) << current->name << "; limit " << resetLimit << ")" );
-			//cout << "Restart heuristic (to much resets to " << ( current->type == ZONE ? "zone " : "sensor" ) << current->name << "; limit " << resetLimit << ")" << endl;
 			coherent = resetHeuristic( true );
 		}
 	}
@@ -1401,7 +1364,7 @@ PUPHeuristic::conflictOccurred(
 
 void
 PUPHeuristic::onFinishedSolving(
-	)
+	bool )
 {
 	solutionFound = true;
 	printStatistics( );
@@ -1566,7 +1529,6 @@ PUPHeuristic::shrink(
 		}
 	}
 	trace_msg( heuristic, 2, "[shrink] pre-shrinking computation completed" );
-	//cout << "[shrink] pre-shrinking computation completed" << endl;
 }
 
 void
@@ -1581,6 +1543,7 @@ PUPHeuristic::printStatistics(
 			partnerUnitsUsed++;
 	}
 
+	cout << "PuP" << endl;
 	cout << "Heuristic time (preprocessing) " << pre.count() << " seconds" << endl;
 	cout << "Heuristic time (decision making) " << dec.count() << " seconds" << endl;
 

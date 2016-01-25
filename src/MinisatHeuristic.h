@@ -50,9 +50,12 @@ class MinisatHeuristic : public Heuristic
         inline void onUnrollingVariable( Var var );
         inline void incrementHeuristicValues( Var v ) { variableBumpActivity( v ); }
         void simplifyVariablesAtLevelZero();
-        inline void conflictOccurred() { variableDecayActivity(); } 
+        inline void conflictOccurred() { variableDecayActivity(); nConflicts++; }
         unsigned int getTreshold( ){ return 0; };
-        void onFinishedSolving( ) { };
+        void onFinishedSolving( bool )
+        {
+        	cout << "Number of conflict (minisat): " << nConflicts << endl;
+        };
         bool isInputCorrect( ) { return true; };
         bool isCoherent( ) { return true; };
         void reset( ) { };
@@ -60,12 +63,14 @@ class MinisatHeuristic : public Heuristic
     protected:
         virtual Literal makeAChoiceProtected();
         
-    private:        
+    private:
         inline void rescaleActivity();        
         inline void variableBumpActivity( Var variable );
         inline bool bumpActivity( Var var ){ assert( var < act.size() ); return ( ( act[ var ] += variableIncrement ) > 1e100 ); }
         void randomChoice();
         inline void variableDecayActivity(){ trace_msg( heuristic, 1, "Calling decay activity" ); variableIncrement *= variableDecay; }                
+
+        unsigned int nConflicts;
 
         Activity variableIncrement;
         Activity variableDecay;
@@ -79,7 +84,7 @@ class MinisatHeuristic : public Heuristic
 };
 
 MinisatHeuristic::MinisatHeuristic( Solver& s ) :
-    Heuristic( s ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act ) )
+    Heuristic( s ), nConflicts( 0 ), variableIncrement( 1.0 ), variableDecay( 1 / 0.95 ), chosenVariable( 0 ), heap( ActivityComparator( act ) )
 {
     act.push_back( 0.0 );
 }

@@ -327,7 +327,7 @@ CCPHeuristic::greedyMatching(
 				else
 				{
 					trace_msg( heuristic, 3, "[M] Chosen variable is 0 and no more vertics left - fallback to minisat" );
-					onFinishedSolving( );
+					onFinishedSolving( false );
 					return Literal::null;
 				}
 			}
@@ -348,7 +348,7 @@ CCPHeuristic::greedyMatching(
 		else
 		{
 			trace_msg( heuristic, 3, "[M] No more vertices left - fallback to minisat" );
-			onFinishedSolving( );
+			onFinishedSolving( false );
 			return Literal::null;
 		}
 
@@ -400,7 +400,7 @@ CCPHeuristic::greedyCBPC(
 					{
 						trace_msg( heuristic, 3, "[CBPC] No more colours available - fallback to minisat" );
 						print( );
-						onFinishedSolving( );
+						onFinishedSolving( false );
 						return Literal::null;
 					}
 				}
@@ -420,7 +420,7 @@ CCPHeuristic::greedyCBPC(
 				{
 					trace_msg( heuristic, 3, "[CBPC] No more vertices - fallback to minisat" );
 					print( );
-					onFinishedSolving( );
+					onFinishedSolving( false );
 					return Literal::null;
 				}
 
@@ -926,6 +926,7 @@ CCPHeuristic::initData(
 
 	//-------------------------------------------------------------------
 
+	// with order - start
 	trace_msg( heuristic, 2, "Initialize vertex value for ordering..." );
 
 	for ( unsigned int i = 0; i < path1.size( ); i++ )
@@ -977,6 +978,22 @@ CCPHeuristic::initData(
 
 	resetHeuristic( );
 	orderingValid = createOrder( );
+	// with ordering - end
+
+	//without ordering - start
+//	for ( unsigned int i = 0; i < vertices.size( ); i++ )
+//		order.push_back( &vertices[ i ] );
+//
+//	orderingValid = true;
+//
+//#ifdef TRACE_ON
+//	string vertexOutput = "";
+//	for ( unsigned int i = 0; i < order.size( ); i++ )
+//		vertexOutput += order[ i ]->name + ", ";
+//
+//	cout << "Consider order: " << vertexOutput << endl;
+//#endif
+	// withoug ordering - end
 
 	return true;
 }
@@ -1003,7 +1020,7 @@ CCPHeuristic::createOrder(
 	for ( unsigned int i = 0; i < order.size( ); i++ )
 		vertexOutput += order[ i ]->name + ", ";
 
-	trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
+	cout << "Consider order: " << vertexOutput << endl;
 #endif
 
 	return true;

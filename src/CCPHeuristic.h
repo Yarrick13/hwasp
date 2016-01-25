@@ -35,16 +35,24 @@ class CCPHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( ) { return nConflicts; }
-        void onFinishedSolving( )
+        void onFinishedSolving( bool fromSolver )
         {
-        	cout << "Number of conflict: " << nConflicts << endl;
-        	cout << "Number of Choices: " << nChoices << endl;
-        	cout << "Number of Iterations: " << nIterations << endl;
+        	if ( !fromSolver )
+        	{
+        		cout << "CCP" << endl;
+        		cout << "fallback" << endl;
+        		cout << "Number of conflict: " << nConflicts << endl;
+        		cout << "Number of Choices: " << nChoices << endl;
+        		cout << "Number of Iterations: " << nIterations << endl;
+        	}
         };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
         void reset( )
         {
+        	nConflicts = 0;
+        	nChoices = 0;
+        	nIterations = 0;
         	unrollHeuristic( );
         	resetHeuristic( );
         	orderingValid = createOrder( );

@@ -481,7 +481,7 @@ BinPackingHeuristic::partition(
 
 void
 BinPackingHeuristic::onFinishedSolving(
-	)
+	bool )
 {
 	bool found;
 	unsigned int usedBins = 0;

@@ -1213,7 +1213,7 @@ void
 Solver::printAnswerSet()
 {
     variables.printAnswerSet( outputBuilder );
-    heuristic->onFinishedSolving( );
+    heuristic->onFinishedSolving( true );
 }
 
 void
