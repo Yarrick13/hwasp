@@ -991,7 +991,7 @@ CCPHeuristic::initData(
 //	for ( unsigned int i = 0; i < order.size( ); i++ )
 //		vertexOutput += order[ i ]->name + ", ";
 //
-//	cout << "Consider order: " << vertexOutput << endl;
+//	trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
 //#endif
 	// withoug ordering - end
 
@@ -1020,7 +1020,7 @@ CCPHeuristic::createOrder(
 	for ( unsigned int i = 0; i < order.size( ); i++ )
 		vertexOutput += order[ i ]->name + ", ";
 
-	cout << "Consider order: " << vertexOutput << endl;
+	trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
 #endif
 
 	return true;
