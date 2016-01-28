@@ -48,7 +48,7 @@ class Solver;
 class PUPHeuristic : public Heuristic
 {
     public:
-        PUPHeuristic( Solver& solver );
+        PUPHeuristic( Solver& solver, bool useNF = false, bool useOF = false, bool useP = true, bool usePC = false );
         ~PUPHeuristic() { };
 
         void onNewVariable( Var v ) { variables.push_back( v ); };
@@ -98,6 +98,11 @@ class PUPHeuristic : public Heuristic
 		unsigned int sFallback;
 		double sAlreadyFalse;
 		double sAlreadyTrue;
+
+		bool useNewFirst;
+		bool useOldFirst;
+		bool usePred;
+		bool usePredCheck;
 
 		std::chrono::duration<double> pre;
 		std::chrono::duration<double> dec;

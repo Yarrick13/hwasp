@@ -208,7 +208,19 @@ WaspFacade::setDecisionPolicy(
 				}
 				else
 				{
-					solver.setHeuristic( new PUPHeuristic( solver ) );
+					if ( heuristic_option.compare( "QUICKPUP" ) == 0 )
+						solver.setHeuristic( new PUPHeuristic( solver, true, false, false, false ) );
+					else if ( heuristic_option.compare( "QUICKPUP*" ) == 0 )
+						solver.setHeuristic( new PUPHeuristic( solver, false, true, false, false ) );
+					else if ( heuristic_option.compare( "PRED*" ) == 0 )
+						solver.setHeuristic( new PUPHeuristic( solver, false, false, true, true ) );
+					else if ( heuristic_option.compare( "PRED" ) == 0 )
+						solver.setHeuristic( new PUPHeuristic( solver ) );
+					else
+					{
+						cerr << "Invalid value for CCP heuristic option. Use QUICKPUP, QUICKPUP*, PRED or PRED*" << endl;
+						exit( 0 );
+					}
 				}
 			}
             break;
@@ -245,9 +257,34 @@ WaspFacade::setDecisionPolicy(
 
         case HEURISTIC_CCP:
         	{
-				CombinedHeuristic* cbin = new CombinedHeuristic( solver, TIME, 10, true );
-				cbin->addHeuristic( "ccp" );
-				solver.setHeuristic( cbin );
+        		CombinedHeuristic* cbin;
+        		if ( heuristic_option.compare( "A1A2" ) == 0 )
+        		{
+        			cbin = new CombinedHeuristic( solver, TIME, 10, false );
+        			cbin->addHeuristic( "ccp heuristic", new CCPHeuristic( solver, false, true ) );
+        		}
+        		else if ( heuristic_option.compare( "A2F" ) == 0 )
+        		{
+        			cbin = new CombinedHeuristic( solver, TIME, 10, false );
+        			cbin->addHeuristic( "ccp heuristic", new CCPHeuristic( solver, false, false ) );
+        		}
+        		else if ( heuristic_option.compare( "A2FO" ) == 0 )
+				{
+        			cbin = new CombinedHeuristic( solver, TIME, 10, false );
+					cbin->addHeuristic( "ccp heuristic", new CCPHeuristic( solver, true, false ) );
+				}
+        		else if ( heuristic_option.compare( "A2AFO" ) == 0 )
+        		{
+        			cbin = new CombinedHeuristic( solver, TIME, 10, true );
+        			cbin->addHeuristic( "ccp heuristic", new CCPHeuristic( solver, true, false ) );
+        		}
+        		else
+        		{
+					cerr << "Invalid value for PUP heuristic option. Use A1A2, A2F, A2FO or A2AFO" << endl;
+					exit( 0 );
+        		}
+
+        		solver.setHeuristic( cbin );
 			}
 			break;
 
@@ -259,7 +296,7 @@ WaspFacade::setDecisionPolicy(
 				vector< string > heuristics;
 				string h;
 
-				for( char& c : combined_heuristic_option )
+				for( char& c : heuristic_option )
 				{
 					if ( c == ';' )
 					{

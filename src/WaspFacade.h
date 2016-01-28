@@ -66,7 +66,7 @@ class WaspFacade
         
         inline unsigned int solveWithWeakConstraints();
 
-        inline void setCombinedHeuristicOption( string value ) { combined_heuristic_option = value; };
+        inline void setHeuristicOption( string value ) { heuristic_option = value; };
         inline void setHeuristicFallback( bool heuristic_fallback ) { this->heuristic_fallback = heuristic_fallback; };
 
     private:
@@ -82,7 +82,7 @@ class WaspFacade
         
         unsigned int queryAlgorithm;
 
-        string combined_heuristic_option;
+        string heuristic_option;
         bool heuristic_fallback;
 };
 

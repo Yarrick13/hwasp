@@ -117,7 +117,7 @@ DELETION_POLICY Options::deletionPolicy = RESTARTS_BASED_DELETION_POLICY;
 DECISION_POLICY Options::decisionPolicy = HEURISTIC_BERKMIN;
 bool heuristic_fallback = false;
 
-string Options::combined_heuristic_option = "";
+string Options::heuristic_option = "";
 
 vector< const char* > Options::inputFiles;
 
@@ -213,12 +213,12 @@ Options::parse(
 //                { "heuristic-berkmin-cache", optional_argument, NULL, OPTIONID_berkminheuristiccache },
 //                { "heuristic-firstundefined", no_argument, NULL, OPTIONID_fuheuristic },
                 { "heuristic-minisat", no_argument, NULL, OPTIONID_minisatheuristic },
-                { "heuristic-pup", no_argument, NULL, OPTIONID_pupheuristic },
+                { "heuristic-pup", required_argument, NULL, OPTIONID_pupheuristic },
 				{ "heuristic-colouring", no_argument, NULL, OPTIONID_colouringheuristic },
 				{ "heuristic-binpacking", no_argument, NULL, OPTIONID_binpackingheuristic },
 				{ "heuristic-combined", required_argument, NULL, OPTIONID_combinedheuristic },
 				{ "heuristic-fallback", no_argument, NULL, OPTIONID_heuristicfallback },
-				{ "heuristic-ccp", no_argument, NULL, OPTIONID_ccpheuristic },
+				{ "heuristic-ccp", required_argument, NULL, OPTIONID_ccpheuristic },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -381,6 +381,7 @@ Options::parse(
                 
             case OPTIONID_pupheuristic:
                 decisionPolicy = HEURISTIC_PUP;
+                heuristic_option = optarg;
                 break;
                 
             case OPTIONID_colouringheuristic:
@@ -393,6 +394,7 @@ Options::parse(
 
             case OPTIONID_ccpheuristic:
             	decisionPolicy = HEURISTIC_CCP;
+            	heuristic_option = optarg;
             	break;
 
             case OPTIONID_heuristicfallback:
@@ -401,7 +403,7 @@ Options::parse(
 
             case OPTIONID_combinedheuristic:
             	decisionPolicy = HEURISTIC_COMBINED;
-            	combined_heuristic_option = optarg;
+            	heuristic_option = optarg;
             	break;
 
             case OPTIONID_sequence_based_restarts:
@@ -567,7 +569,7 @@ void
 Options::setOptions(
     WaspFacade& waspFacade )
 {
-    waspFacade.setCombinedHeuristicOption( combined_heuristic_option );
+    waspFacade.setHeuristicOption( heuristic_option );
     waspFacade.setHeuristicFallback( heuristic_fallback );
     waspFacade.setDeletionPolicy( deletionPolicy, deletionThreshold );
     waspFacade.setDecisionPolicy( decisionPolicy, decisionThreshold );

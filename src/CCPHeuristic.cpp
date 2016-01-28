@@ -28,8 +28,10 @@
 #include "util/HeuristicUtil.h"
 
 CCPHeuristic::CCPHeuristic(
-    Solver& s ) : Heuristic( s ), nrOfColors( 0 ), nrOfBins( 0 ), maxBinSize( 0 ), inputCorrect( true ), index( 0 ), currentColour( 0 ),
-	nConflicts( 0 ), nChoices( 0 ), nIterations( 0 ), fallback( false ), orderingValid( false ), currentV( 0 ), currentBe( 0 )
+    Solver& s,
+	bool useO,
+	bool useA1 ) : Heuristic( s ), nrOfColors( 0 ), nrOfBins( 0 ), maxBinSize( 0 ), inputCorrect( true ), index( 0 ), currentColour( 0 ),
+	nConflicts( 0 ), nChoices( 0 ), nIterations( 0 ), fallback( false ), orderingValid( false ), useOrdering( useO ), useA1A2( useA1 ), currentV( 0 ), currentBe( 0 )
 {
 }
 
@@ -261,22 +263,27 @@ CCPHeuristic::makeAChoiceProtected(
 	)
 {
 	// A1 first, A2 afterwards - start
-//	if ( !fallback )
-//	{
-//		Literal l = greedyMatching( );
-//		if ( l != Literal::null )
-//			return l;
-//
-//		fallback = true;
-//		resetHeuristic( );
-//		return greedyCBPC( );
-//	}
-//
-//	return greedyCBPC( );
-	// A1 first, A2 afterwards - end
+	if ( useA1A2 )
+	{
+		if ( !fallback )
+		{
+			Literal l = greedyMatching( );
+			if ( l != Literal::null )
+				return l;
 
+			fallback = true;
+			resetHeuristic( );
+			return greedyCBPC( );
+		}
+
+		return greedyCBPC( );
+	}
+	// A1 first, A2 afterwards - end
+	else
 	// A2 only - start
-	return greedyCBPC( );
+	{
+		return greedyCBPC( );
+	}
 	// A2 only - end
 }
 
@@ -927,73 +934,80 @@ CCPHeuristic::initData(
 	//-------------------------------------------------------------------
 
 	// with order - start
-	trace_msg( heuristic, 2, "Initialize vertex value for ordering..." );
 
-	for ( unsigned int i = 0; i < path1.size( ); i++ )
+	if ( useOrdering )
 	{
-		found = false;
-		for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
+		trace_msg( heuristic, 2, "Initialize vertex value for ordering..." );
+
+		for ( unsigned int i = 0; i < path1.size( ); i++ )
 		{
-			if ( path1[ i ].compare( vertices[ j ].name ) == 0 )
+			found = false;
+			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
 			{
-				found = true;
-				vertices[ j ].inPath = 1;
-				vertices[ j ].orderingValue++;
+				if ( path1[ i ].compare( vertices[ j ].name ) == 0 )
+				{
+					found = true;
+					vertices[ j ].inPath = 1;
+					vertices[ j ].orderingValue++;
+				}
 			}
 		}
-	}
 
-	for ( unsigned int i = 0; i < path2.size( ); i++ )
-	{
-		found = false;
-		for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
+		for ( unsigned int i = 0; i < path2.size( ); i++ )
 		{
-			if ( path2[ i ].compare( vertices[ j ].name ) == 0 )
+			found = false;
+			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
 			{
-				found = true;
-				vertices[ j ].inPath = 2;
-				vertices[ j ].orderingValue++;
+				if ( path2[ i ].compare( vertices[ j ].name ) == 0 )
+				{
+					found = true;
+					vertices[ j ].inPath = 2;
+					vertices[ j ].orderingValue++;
+				}
 			}
 		}
-	}
 
-	for ( unsigned int i = 0; i < vertices.size( ); i++ )
-	{
-		if ( ( vertices[ i ].nPredecessors == 0 ) || ( vertices[ i ].nSuccessors == 0 ) )
+		for ( unsigned int i = 0; i < vertices.size( ); i++ )
 		{
-			vertices[ i ].orderingValue+=2;
+			if ( ( vertices[ i ].nPredecessors == 0 ) || ( vertices[ i ].nSuccessors == 0 ) )
+			{
+				vertices[ i ].orderingValue+=2;
+			}
+
+			if ( vertices[ i ].orderingValue > 0 )
+				startingVertices.push_back( &vertices[ i ] );
 		}
 
-		if ( vertices[ i ].orderingValue > 0 )
-			startingVertices.push_back( &vertices[ i ] );
+		std::sort ( startingVertices.begin( ), startingVertices.end(), compareVertexOrderValueDESC );
+
+		//-------------------------------------------------------------------
+
+		order.clear( );
+		for ( unsigned int i = 0; i < vertices.size( ); i++ )
+			order.push_back( &vertices[ i ] );
+
+		orderingValid = createOrder( );
 	}
+	// with ordering - end
+	else
+	//without ordering - start
+	{
+		for ( unsigned int i = 0; i < vertices.size( ); i++ )
+			order.push_back( &vertices[ i ] );
 
-	std::sort ( startingVertices.begin( ), startingVertices.end(), compareVertexOrderValueDESC );
+		orderingValid = true;
 
-	//-------------------------------------------------------------------
+#ifdef TRACE_ON
+		string vertexOutput = "";
+		for ( unsigned int i = 0; i < order.size( ); i++ )
+			vertexOutput += order[ i ]->name + ", ";
 
-	order.clear( );
-	for ( unsigned int i = 0; i < vertices.size( ); i++ )
-		order.push_back( &vertices[ i ] );
+		trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
+#endif
+	}
+	// withoug ordering - end
 
 	resetHeuristic( );
-	orderingValid = createOrder( );
-	// with ordering - end
-
-	//without ordering - start
-//	for ( unsigned int i = 0; i < vertices.size( ); i++ )
-//		order.push_back( &vertices[ i ] );
-//
-//	orderingValid = true;
-//
-//#ifdef TRACE_ON
-//	string vertexOutput = "";
-//	for ( unsigned int i = 0; i < order.size( ); i++ )
-//		vertexOutput += order[ i ]->name + ", ";
-//
-//	trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
-//#endif
-	// withoug ordering - end
 
 	return true;
 }

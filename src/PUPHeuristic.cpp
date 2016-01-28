@@ -27,11 +27,16 @@
 #include "util/HeuristicUtil.h"
 #include "util/VariableNames.h"
 
-PUPHeuristic::PUPHeuristic( Solver& s ) :
+PUPHeuristic::PUPHeuristic(
+	Solver& s,
+	bool useNF,
+	bool useOF,
+	bool useP,
+	bool usePC ) :
     Heuristic( s ),  startAt( 0 ), index( 0 ), maxPu( 2 ), maxElementsOnPu( 2 ), lowerBound( 2 ), coherent( true ), shrinkingPossible( true ),
 	conflictHandled( true ), redoAfterAddingConstraint( false ), redoAfterShrinking( false ), inputCorrect( true ), solutionFound( false ), resetLimit( 500 ),
 	shrinkingIndex( 0 ), sNumberOfConflicts( 0 ), sNumberOfOrdersCreated( 0 ), sNumberOfRecommendations( 0 ), sNumberOfOrderMaxReached( 0 ), sFallback( 0 ),
-	sAlreadyFalse( 0 ), sAlreadyTrue( 0 ), pre( 0 ), dec( 0 )
+	sAlreadyFalse( 0 ), sAlreadyTrue( 0 ), useNewFirst( useNF ), useOldFirst( useOF ), usePred( useP ), usePredCheck( usePC ), pre( 0 ), dec( 0 )
 { }
 
 /*
@@ -1024,40 +1029,43 @@ PUPHeuristic::makeAChoiceProtected( )
 
 // check for pred start
 // not working with shrinking (isUsed from partnerunits is not synchronized)
-//			if ( !checkPartialAssignment( ) )
-//			{
-//				trace_msg( heuristic, 3, "Solution not possible with current partial assignment (circle detected)" );
-//
-//#ifdef TRACE_ON
-//				string ass = "";
-//#endif
-//				unsigned int last = 0;
-//
-//				for ( last = 0; last < assignments.size( ) && solver.getTruthValue( assignments[ last ].var ) == TRUE; last++ );
-//
-//				index--;
-//				assignments.pop_back( );
-//				unrollHeuristic( );
-//
-//				vector< Literal > l;
-//				for ( unsigned int i = 0; i < last; i++ )
-//				{
-//					if ( solver.isUndefined( assignments[ i ].var ) )
-//						l.push_back( Literal (assignments[ i ].var, NEGATIVE ) );
-//
-//#ifdef TRACE_ON
-//					ass += VariableNames::getName( assignments[ i ].var ) + ", ";
-//#endif
-//				}
-//
-//				addClause( l );
-//
-//				redoAfterAddingConstraint = true;
-//				trace_msg( heuristic, 3, "[redo] Not possible: " << ass );
-//
-//				trace_msg( heuristic, 3, "[redo] ChosenVariable is " << VariableNames::getName( assignments[ 0 ].var ) );
-//				return Literal( assignments[ 0 ].var, POSITIVE );
-//			}
+			if ( usePredCheck )
+			{
+				if ( !checkPartialAssignment( ) )
+				{
+					trace_msg( heuristic, 3, "Solution not possible with current partial assignment (circle detected)" );
+
+#ifdef TRACE_ON
+					string ass = "";
+#endif
+					unsigned int last = 0;
+
+					for ( last = 0; last < assignments.size( ) && solver.getTruthValue( assignments[ last ].var ) == TRUE; last++ );
+
+					index--;
+					assignments.pop_back( );
+					unrollHeuristic( );
+
+					vector< Literal > l;
+					for ( unsigned int i = 0; i < last; i++ )
+					{
+						if ( solver.isUndefined( assignments[ i ].var ) )
+							l.push_back( Literal (assignments[ i ].var, NEGATIVE ) );
+
+#ifdef TRACE_ON
+						ass += VariableNames::getName( assignments[ i ].var ) + ", ";
+#endif
+					}
+
+					addClause( l );
+
+					redoAfterAddingConstraint = true;
+					trace_msg( heuristic, 3, "[redo] Not possible: " << ass );
+
+					trace_msg( heuristic, 3, "[redo] ChosenVariable is " << VariableNames::getName( assignments[ 0 ].var ) );
+					return Literal( assignments[ 0 ].var, POSITIVE );
+				}
+		}
 // check for pred end
 
 			if ( !conflictHandled )
@@ -1151,10 +1159,13 @@ PUPHeuristic::makeAChoiceProtected( )
 		while( found );
 
 // needed for pred start
-		if ( computePredecessorUnits )
+		if ( usePred )
 		{
-			getPredecessorUnits( current );
-			computePredecessorUnits = false;
+			if ( computePredecessorUnits )
+			{
+				getPredecessorUnits( current );
+				computePredecessorUnits = false;
+			}
 		}
 //needed for pred end
 
@@ -1165,71 +1176,80 @@ PUPHeuristic::makeAChoiceProtected( )
 
 // version 1 with pred start
 // try unused unit first and used units afterwards ( asc )
-			chosenVariable = getUntriedPredecessorUnit( &pu, current );
-			if ( chosenVariable != 0 )
+			if ( usePred )
 			{
-				trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (predecessor unit)" );
-				searchAndAddAssignment( current, chosenVariable, pu, false );
-			}
-
-			// get unused partner unit first
-			if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
-			{
-				chosenVariable = getUnusedPu( &pu, current );
+				chosenVariable = getUntriedPredecessorUnit( &pu, current );
 				if ( chosenVariable != 0 )
 				{
-					trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (new unit)" );
-					searchAndAddAssignment( current, chosenVariable, pu, true );
-				}
-			}
-
-			// try all used afterwards
-			if ( chosenVariable == 0 )
-			{
-				getTriedAssignments( &tried );
-				chosenVariable = getUntriedPu( &pu, current, tried );
-				if ( chosenVariable != 0 )
-				{
-					trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (used unit)" );
+					trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (predecessor unit)" );
 					searchAndAddAssignment( current, chosenVariable, pu, false );
+				}
+
+				// get unused partner unit first
+				if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
+				{
+					chosenVariable = getUnusedPu( &pu, current );
+					if ( chosenVariable != 0 )
+					{
+						trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (new unit)" );
+						searchAndAddAssignment( current, chosenVariable, pu, true );
+					}
+				}
+
+				// try all used afterwards
+				if ( chosenVariable == 0 )
+				{
+					getTriedAssignments( &tried );
+					chosenVariable = getUntriedPu( &pu, current, tried );
+					if ( chosenVariable != 0 )
+					{
+						trace_msg( heuristic, 3, "Chosen variable is "<< chosenVariable << " " << Literal( chosenVariable, POSITIVE ) << " (used unit)" );
+						searchAndAddAssignment( current, chosenVariable, pu, false );
+					}
 				}
 			}
 // version 1 with pred end
 
 // version 1 start
 // try unused unit first and used units afterwards ( asc )
-//			// get unused partner unit first
-//			if ( !getTriedAssignments( &tried ) )
-//			{
-//				chosenVariable = getUnusedPu( &pu, current );
-//				if ( chosenVariable != 0 )
-//					searchAndAddAssignment( current, chosenVariable, pu, true );
-//			}
-//
-//			// try all used afterwards
-//			if ( chosenVariable == 0 )
-//			{
-//				chosenVariable = getUntriedPu( &pu, current, tried );
-//				if ( chosenVariable != 0 )
-//					searchAndAddAssignment( current, chosenVariable, pu, false );
-//			}
+			else if ( useNewFirst )
+			{
+				// get unused partner unit first
+				if ( !getTriedAssignments( &tried ) )
+				{
+					chosenVariable = getUnusedPu( &pu, current );
+					if ( chosenVariable != 0 )
+						searchAndAddAssignment( current, chosenVariable, pu, true );
+				}
+
+				// try all used afterwards
+				if ( chosenVariable == 0 )
+				{
+					chosenVariable = getUntriedPu( &pu, current, tried );
+					if ( chosenVariable != 0 )
+						searchAndAddAssignment( current, chosenVariable, pu, false );
+				}
+			}
 // version 1 end
 
 // version 2 start
 // try used units first ( asc ) and unused unit aftwards
-//			// try all used units
-//			getTriedAssignments( &tried );
-//			chosenVariable = getUntriedPu( &pu, current, tried );
-//			if ( chosenVariable != 0 )
-//				searchAndAddAssignment( current, chosenVariable, pu, false );
-//
-//			// get unused partner unit
-//			if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
-//			{
-//				chosenVariable = getUnusedPu( &pu, current );
-//				if ( chosenVariable != 0 )
-//					searchAndAddAssignment( current, chosenVariable, pu, true );
-//			}
+			else if ( useOldFirst )
+			{
+				// try all used units
+				getTriedAssignments( &tried );
+				chosenVariable = getUntriedPu( &pu, current, tried );
+				if ( chosenVariable != 0 )
+					searchAndAddAssignment( current, chosenVariable, pu, false );
+
+				// get unused partner unit
+				if ( chosenVariable == 0 && !newUnitTriedForCurrentNode( ) )
+				{
+					chosenVariable = getUnusedPu( &pu, current );
+					if ( chosenVariable != 0 )
+						searchAndAddAssignment( current, chosenVariable, pu, true );
+				}
+			}
 // version 2 end
 
 			// chosen variable is zero if all possible partner unit has been tried
@@ -1394,10 +1414,6 @@ PUPHeuristic::shrink(
 	vector< Pu* >* removed,
 	vector< Pu* >* notUsed )
 {
-
-	for ( Assignment a : assignments )
-		cout << VariableNames::getName( a.var ) << " is " << solver.getTruthValue( a.var ) << endl;
-
 	unsigned int nZones;
 	unsigned int nSensors;
 	unsigned int nPartners;
@@ -1412,7 +1428,6 @@ PUPHeuristic::shrink(
 	}
 
 	trace_msg( heuristic, 4, "[shrink] Analyse current partner unit connections" );
-	//cout << "[shrink] Analyse current partner unit connections" << endl;
 	for ( PartnerUnitConnection puc : partnerUnitConnections )
 	{
 		if ( solver.getTruthValue( puc.var ) == TRUE )
@@ -1428,7 +1443,6 @@ PUPHeuristic::shrink(
 	}
 
 	trace_msg( heuristic, 4, "[shrink] Count connected zones/sensors/partners and get unused units" );
-	//cout << "[shrink] Count connected zones/sensors/partners and get unused units" << endl;
 	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
 	{
 		if ( partnerUnits[ i ].isUsed )
@@ -1451,7 +1465,6 @@ PUPHeuristic::shrink(
 	}
 
 	trace_msg( heuristic, 4, "[shrink] Start pre-shrinking computation" );
-	//cout << "[shrink] Start pre-shrinking computation" << endl;
 	for ( unsigned int i = 0; i < partnerUnits.size( ); i++ )
 	{
 		// ignore unused units (from e.g. partial solutions)
@@ -1486,7 +1499,6 @@ PUPHeuristic::shrink(
 						 partnerUnits[ j ].removed == false )
 					{
 						trace_msg( heuristic, 5, "[shrink] Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" );
-						//cout << "[shrink] Merge unit " << partnerUnits[ i ].name << " and unit " << partnerUnits[ j ].name << " (unit " << partnerUnits[ j ].name << " is removed)" << endl;
 
 						partnerUnits[ i ].numberOfZones = nZones;
 						partnerUnits[ i ].numberOfSensors = nSensors;
@@ -1516,7 +1528,6 @@ PUPHeuristic::shrink(
 								if ( solver.getTruthValue( za2->var ) == TRUE && za1->to == za2->to && za1->type == za2->type )
 								{
 									trace_msg( heuristic, 6, "[shrink] Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ j ].name << " to unit " << partnerUnits[ i ].name );
-									//cout << "[shrink] Move " << ( za2->type == ZONE ? "zone " : "sensor ") << za2->to << " from unit " << partnerUnits[ j ].name << " to unit " << partnerUnits[ i ].name << endl;
 
 									trueInAS->push_back( za1->var );
 									falseInAS->push_back( za2->var );

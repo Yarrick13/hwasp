@@ -24,7 +24,7 @@
 class CCPHeuristic : public Heuristic
 {
     public:
-		CCPHeuristic( Solver& solver );
+		CCPHeuristic( Solver& solver, bool useO = true, bool useA1 = false );
         ~CCPHeuristic( ) { };
         void onNewVariable( Var v ){ variables.push_back( v ); }
         void onNewVariableRuntime( Var ){ }
@@ -75,6 +75,9 @@ class CCPHeuristic : public Heuristic
 
         bool fallback;
         bool orderingValid;
+
+        bool useOrdering;
+		bool useA1A2;
 
     public:
         struct VertexColour

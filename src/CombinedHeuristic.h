@@ -49,6 +49,7 @@ class CombinedHeuristic : public Heuristic
 
         void addHeuristic( Heuristic* h );
         bool addHeuristic( string h );
+        bool addHeuristic( string hname, Heuristic* h );
 
     protected:
         Literal makeAChoiceProtected( );

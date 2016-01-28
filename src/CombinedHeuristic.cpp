@@ -130,12 +130,12 @@ CombinedHeuristic::makeAChoiceProtected(
 
 		if ( index < heuristics.size( ) )
 		{
-			cout << heursisticsNames[ index ] << " conflicts: " << nConflicts << endl;
+			trace_msg( heuristic, 2, heursisticsNames[ index ] << " conflicts: " << nConflicts );
 			heuristics[ index ]->onFinishedSolving( false );
 		}
 		else
 		{
-			cout << "minisat conflicts: " << nConflicts << endl;
+			trace_msg( heuristic, 2, "minisat conflicts: " << nConflicts );
 		}
 		nConflicts = 0;
 
@@ -244,6 +244,17 @@ CombinedHeuristic::addHeuristic(
 	}
 	else
 		return false;
+
+	return true;
+}
+
+bool
+CombinedHeuristic::addHeuristic(
+	string hname,
+	Heuristic* h )
+{
+	heuristics.push_back( h );
+	heursisticsNames.push_back( hname );
 
 	return true;
 }

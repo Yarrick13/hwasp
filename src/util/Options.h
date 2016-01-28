@@ -65,7 +65,7 @@ namespace wasp
 
             //static DECISION_POLICY decisionPolicy;
             
-            static string combined_heuristic_option;
+            static string heuristic_option;
 
             static vector< const char* > inputFiles;
 
