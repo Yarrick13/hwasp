@@ -70,6 +70,7 @@ namespace wasp
 #define OPTIONID_combinedheuristic ( 'z' + 37 )
 #define OPTIONID_heuristicfallback ( 'z' + 38 )
 #define OPTIONID_ccpheuristic ( 'z' + 39 )
+#define OPTIONID_stablemarriageheuristic ( 'z' + 40 )
 
 /* RESTART OPTIONS */
 #define OPTIONID_geometric_restarts ( 'z' + 50 )
@@ -219,6 +220,7 @@ Options::parse(
 				{ "heuristic-combined", required_argument, NULL, OPTIONID_combinedheuristic },
 				{ "heuristic-fallback", no_argument, NULL, OPTIONID_heuristicfallback },
 				{ "heuristic-ccp", required_argument, NULL, OPTIONID_ccpheuristic },
+				{ "heuristic-sm", no_argument, NULL, OPTIONID_stablemarriageheuristic },
                 
                 /* RESTART OPTIONS */                
 //                { "geometric-restarts", optional_argument, NULL, OPTIONID_geometric_restarts },
@@ -395,6 +397,10 @@ Options::parse(
             case OPTIONID_ccpheuristic:
             	decisionPolicy = HEURISTIC_CCP;
             	heuristic_option = optarg;
+            	break;
+
+            case OPTIONID_stablemarriageheuristic:
+            	decisionPolicy = HEURISTIC_STABLEMARRIAGE;
             	break;
 
             case OPTIONID_heuristicfallback:

@@ -34,6 +34,7 @@
 #include "BinPackingHeuristic.h"
 #include "CombinedHeuristic.h"
 #include "CCPHeuristic.h"
+#include "StableMarriageHeuristic.h"
 #include "outputBuilders/MultiOutputBuilder.h"
 #include "QueryInterface.h"
 
@@ -218,7 +219,7 @@ WaspFacade::setDecisionPolicy(
 						solver.setHeuristic( new PUPHeuristic( solver ) );
 					else
 					{
-						cerr << "Invalid value for CCP heuristic option. Use QUICKPUP, QUICKPUP*, PRED or PRED*" << endl;
+						cerr << "Invalid value for PUP heuristic option. Use QUICKPUP, QUICKPUP*, PRED or PRED*" << endl;
 						exit( 0 );
 					}
 				}
@@ -255,6 +256,10 @@ WaspFacade::setDecisionPolicy(
         	}
         	break;
 
+        case HEURISTIC_STABLEMARRIAGE:
+        	solver.setHeuristic( new StableMarriageHeuristic( solver ) );
+        	break;
+
         case HEURISTIC_CCP:
         	{
         		CombinedHeuristic* cbin;
@@ -280,7 +285,7 @@ WaspFacade::setDecisionPolicy(
         		}
         		else
         		{
-					cerr << "Invalid value for PUP heuristic option. Use A1A2, A2F, A2FO or A2AFO" << endl;
+					cerr << "Invalid value for CPP heuristic option. Use A1A2, A2F, A2FO or A2AFO" << endl;
 					exit( 0 );
         		}
 
