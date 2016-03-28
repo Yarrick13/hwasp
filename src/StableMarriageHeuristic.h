@@ -26,7 +26,7 @@
 class StableMarriageHeuristic : public Heuristic
 {
     public:
-		StableMarriageHeuristic( Solver& solver );
+		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps );
         ~StableMarriageHeuristic( ) { };
         void onNewVariable( Var v ){ variables.push_back( v ); }
         void onNewVariableRuntime( Var ){ }
@@ -55,6 +55,8 @@ class StableMarriageHeuristic : public Heuristic
         	map< string, int > preferncesInput;
         	vector< pair< Person*, int > > prefsByID;
         	vector< pair< Person*, int > > prefsByPref;
+
+        	Person* currentPartner;
 		};
 
         struct Match
@@ -78,6 +80,9 @@ class StableMarriageHeuristic : public Heuristic
         vector< vector< Match* > > matches;
         vector< Match* > matchesUsedInLS;
 
+        float randWalkProb;
+        unsigned int steps;
+        unsigned int maxSteps;
         unsigned int size;
         bool inputCorrect;
 
@@ -87,6 +92,8 @@ class StableMarriageHeuristic : public Heuristic
         void initData( );
 
         void createFullAssignment( );
+        bool getBestMatchingFromNeighbourhood( Match** bestBlockingPath );
+        bool getBlockingPairs( vector< Match* >* blockingPairs );
 };
 
 #endif
