@@ -31,8 +31,11 @@
 StableMarriageHeuristic::StableMarriageHeuristic(
     Solver& s,
 	float randomWalkProbability,
-	unsigned int maxSteps ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), size( 0 ), inputCorrect( true )
+	unsigned int maxSteps,
+	unsigned int timeout ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeout ),
+	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), marriageFound( false )
 {
+	minisat = new MinisatHeuristic( s );
 	srand(time(NULL));
 }
 
@@ -129,6 +132,8 @@ void
 StableMarriageHeuristic::onFinishedParsing (
 	)
 {
+	minisat->onFinishedParsing( );
+
 	trace_msg( heuristic, 1, "Initializing stable marriage heuristic" );
 	trace_msg( heuristic, 1, "Start processing variables" );
 
@@ -177,22 +182,6 @@ StableMarriageHeuristic::onFinishedParsing (
 }
 
 bool
-compareValuesASC(
-	pair< StableMarriageHeuristic::Person*, int > p1,
-	pair< StableMarriageHeuristic::Person*, int > p2 )
-{
-	return ( p1.second < p2.second );
-};
-
-bool
-compareValuesDESC(
-	pair< StableMarriageHeuristic::Person*, int > p1,
-	pair< StableMarriageHeuristic::Person*, int > p2 )
-{
-	return ( p1.second > p2.second );
-};
-
-bool
 compareMatchesDESC(
 	pair< StableMarriageHeuristic::Match*, int > p1,
 	pair< StableMarriageHeuristic::Match*, int > p2 )
@@ -225,12 +214,6 @@ StableMarriageHeuristic::initData(
 	{
 		for ( unsigned int j = 0; j < size; j++ )
 		{
-			men[ i ].prefsByID.push_back( pair< Person*, int > ( &women[ j ], women[ j ].id ) );
-			men[ i ].prefsByPref.push_back( pair< Person*, int > ( &women[ j ], men[ i ].preferncesInput.find( women[ j ].name )->second ) );
-
-			women[ i ].prefsByID.push_back( pair< Person*, int > ( &men[ j ], women[ i ].id ) );
-			women[ i ].prefsByPref.push_back( pair< Person*, int > ( &men[ j ], women[ i ].preferncesInput.find( men[ j ].name )->second ) );
-
 			found = false;
 			for ( unsigned int k = 0; k < matchesInput.size( ) && !found; k++ )
 			{
@@ -242,11 +225,6 @@ StableMarriageHeuristic::initData(
 				}
 			}
 		}
-
-		sort( men[ i ].prefsByID.begin( ), men[ i ].prefsByID.end( ), compareValuesASC );
-		sort( men[ i ].prefsByPref.begin( ), men[ i ].prefsByPref.end( ), compareValuesDESC );
-		sort( women[ i ].prefsByID.begin( ), women[ i ].prefsByID.end( ), compareValuesASC );
-		sort( women[ i ].prefsByPref.begin( ), women[ i ].prefsByPref.end( ), compareValuesDESC );
 	}
 
 	sort( matchesInput.begin( ), matchesInput.end( ), compareMatchesASC );
@@ -263,8 +241,6 @@ StableMarriageHeuristic::initData(
 
 		matches.push_back( m );
 	}
-
-	//-------------------------------------------------------
 }
 
 /*
@@ -274,57 +250,92 @@ Literal
 StableMarriageHeuristic::makeAChoiceProtected(
 	)
 {
-	vector< Match* > blockingPairsCurrent;
-	Match* bestBlockingPath = 0;
-	bool blockingPairsRemaining = true;
-
-	createFullAssignment( );
-
-	do
+	if ( !runLocalSearch )
 	{
-		if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
+		end = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsed_seconds = end-start;
+
+		if ( elapsed_seconds.count( ) > timeout )
 		{
-			trace_msg( heuristic, 2, "Random step..." );
-
-			blockingPairsRemaining = getBlockingPairs( &blockingPairsCurrent );
-
-			// ToDo: choose one random and swap
+			runLocalSearch = true;
 		}
-		else
+	}
+
+	if ( runLocalSearch )
+	{
+		marriageFound = false;
+
+		Match* chosenBlockingPath = 0;
+		bool blockingPathsRemaining = true;
+
+		createFullAssignment( );
+
+		do
 		{
-			trace_msg( heuristic, 2, "Heuristic step..." );
+			cout << endl << "-------------------------------------------" << endl;
 
-			blockingPairsRemaining = getBestMatchingFromNeighbourhood( &bestBlockingPath );
+			if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
+			{
+				trace_msg( heuristic, 2, "Random step..." );
 
-			// ToDo: swap best
+				blockingPathsRemaining = getRandomBlockingPath( &chosenBlockingPath );
+			}
+			else
+			{
+				trace_msg( heuristic, 2, "Heuristic step..." );
+
+				blockingPathsRemaining = getBestPathFromNeighbourhood( &chosenBlockingPath );
+			}
+
+			if ( blockingPathsRemaining )
+			{
+				removeBlockingPath( chosenBlockingPath );
+			}
+			else
+			{
+				marriageFound = true;
+				trace_msg( heuristic, 2, "No more blocking paths found..." );
+			}
+
+#ifdef TRACE_ON
+			string out = "";
+			for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
+			{
+				if ( matchesInput[ i ].usedInLS )
+					out += VariableNames::getName( matchesInput[ i ].var ) + ", ";
+			}
+			trace_msg( heuristic, 2, "Current assignment: " << out );
+
+			trace_msg( heuristic, 5, "Partner (men)" );
+			for ( unsigned int i = 0; i < men.size( ); i++ )
+				trace_msg( heuristic, 5, men[ i ].name << " is partner of " << men[ i ].currentPartner->name );
+
+			trace_msg( heuristic, 5, "Partner (women)" );
+			for ( unsigned int i = 0; i < women.size( ); i++ )
+				trace_msg( heuristic, 5, women[ i ].name << " is partner of " << women[ i ].currentPartner->name );
+#endif
+
+		} while ( blockingPathsRemaining && steps < maxSteps );
+
+		trace_msg( heuristic, 2, "Send assignment to solver..." );
+		for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
+		{
+			if ( matchesInput[ i ].usedInLS )
+				matchesInMarriage.push_back( &matchesInput[ i ] );
 		}
-	} while ( blockingPairsRemaining && steps < maxSteps );
 
-//	// A1 first, A2 afterwards - start
-//	if ( useA1A2 )
-//	{
-//		if ( !fallback )
-//		{
-//			Literal l = greedyMatching( );
-//			if ( l != Literal::null )
-//				return l;
-//
-//			fallback = true;
-//			resetHeuristic( );
-//			return greedyCBPC( );
-//		}
-//
-//		return greedyCBPC( );
-//	}
-//	// A1 first, A2 afterwards - end
-//	else
-//	// A2 only - start
-//	{
-//		return greedyCBPC( );
-//	}
-//	// A2 only - end
-	exit( 0 );
-	return Literal::null;
+		index = 0;
+		runLocalSearch = false;
+		start = std::chrono::system_clock::now();
+	}
+
+	if ( index < matchesInMarriage.size( ) )
+	{
+		trace_msg( heuristic, 3, "Send " << VariableNames::getName( matchesInMarriage[ index ]->var ) );
+		return Literal( matchesInMarriage[ index++ ]->var, POSITIVE );
+	}
+
+	return minisat->makeAChoice( );
 }
 
 void
@@ -426,11 +437,11 @@ StableMarriageHeuristic::createFullAssignment(
 }
 
 bool
-StableMarriageHeuristic::getBlockingPairs(
-	vector< Match* >* blockingPairs )
+StableMarriageHeuristic::getBlockingPath(
+	vector< Match* >* blockingPaths )
 {
-	trace_msg( heuristic, 3, "Looking for blocking pairs..." );
-	blockingPairs->clear( );
+	trace_msg( heuristic, 3, "Looking for blocking paths..." );
+	blockingPaths->clear( );
 
 	Person* currentPartnerM;
 	Person* currentPartnerW;
@@ -439,7 +450,7 @@ StableMarriageHeuristic::getBlockingPairs(
 
 	for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
 	{
-		trace_msg( heuristic, 4, "Check pair " << VariableNames::getName( matchesInput[ i ].var ) );
+		trace_msg( heuristic, 4, "Check path " << VariableNames::getName( matchesInput[ i ].var ) );
 
 		if ( !matchesInput[ i ].usedInLS && !matchesInput[ i ].lockedBySolver )
 		{
@@ -463,47 +474,47 @@ StableMarriageHeuristic::getBlockingPairs(
 				if ( !matches[ possiblePartnerM->id ][ currentPartnerW->id ]->lockedBySolver &&
 					 !matches[ currentPartnerM->id ][ possiblePartnerW->id ]->lockedBySolver )
 				{
-					trace_msg( heuristic, 5, "Blocking pair found" );
-					blockingPairs->push_back( &matchesInput[ i ] );
+					trace_msg( heuristic, 5, "Blocking path found" );
+					blockingPaths->push_back( &matchesInput[ i ] );
 				}
 				else
 				{
-					trace_msg( heuristic, 5, "Blocking pair found but current matches are locked" );
+					trace_msg( heuristic, 5, "Blocking path found but current matches are locked" );
 				}
 			}
 		}
 		else
 		{
-			trace_msg( heuristic, 5, "Blocking pair found is already used or locked" );
+			trace_msg( heuristic, 5, "Blocking path found is already used or locked" );
 		}
 	}
 
 #ifdef TRACE_ON
 	string out = "";
-	for ( unsigned int i = 0; i < blockingPairs->size( ); i++ )
-		out += VariableNames::getName( blockingPairs->at( i )->var ) + ", ";
+	for ( unsigned int i = 0; i < blockingPaths->size( ); i++ )
+		out += VariableNames::getName( blockingPaths->at( i )->var ) + ", ";
 
-	trace_msg( heuristic, 3, "All blocking pairs: " << out );
+	trace_msg( heuristic, 3, "All blocking paths: " << out );
 #endif
 
-	if ( blockingPairs->size( ) == 0 )
+	if ( blockingPaths->size( ) == 0 )
 		return false;
 	return true;
 }
 
 bool
-StableMarriageHeuristic::getBestMatchingFromNeighbourhood(
+StableMarriageHeuristic::getBestPathFromNeighbourhood(
 	Match** bestBlockingPath )
 {
-	vector< Match* > blockingPairsCurrent;
-    vector< Match* > blockingPairsSimulated;
+	vector< Match* > blockingPathsCurrent;
+    vector< Match* > blockingPathsSimulated;
     vector< pair< Match*, int> > neighbourhood;
 
-	trace_msg( heuristic, 2, "Get blocking pairs for current assignment..." );
+	trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
 
-	if ( !getBlockingPairs( &blockingPairsCurrent ) )
+	if ( !getBlockingPath( &blockingPathsCurrent ) )
 	{
-		trace_msg( heuristic, 2, "No blocking pairs - stable marriage found" );
+		trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
 		return false;
 	}
 
@@ -512,11 +523,11 @@ StableMarriageHeuristic::getBestMatchingFromNeighbourhood(
 	Match* removedMatching1;
 	Match* removedMatching2;
 
-	for ( unsigned int i = 0; i < blockingPairsCurrent.size( ); i++ )
+	for ( unsigned int i = 0; i < blockingPathsCurrent.size( ); i++ )
 	{
-		trace_msg( heuristic, 2, "Simulate removing blocking pair " << VariableNames::getName( blockingPairsCurrent[ i ]->var ) << "..." );
+		trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( blockingPathsCurrent[ i ]->var ) << "..." );
 
-		addedMatching1 = blockingPairsCurrent[ i ];
+		addedMatching1 = blockingPathsCurrent[ i ];
 		removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
 		removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
 		addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
@@ -531,16 +542,15 @@ StableMarriageHeuristic::getBestMatchingFromNeighbourhood(
 		removedMatching1->usedInLS = false;
 		removedMatching2->usedInLS = false;
 
-		trace_msg( heuristic, 4, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
 		addedMatching1->man->currentPartner = addedMatching1->woman;
 		addedMatching1->woman->currentPartner = addedMatching1->man;
 
-		trace_msg( heuristic, 4, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
 		removedMatching2->man->currentPartner = removedMatching1->woman;
 		removedMatching1->woman->currentPartner = removedMatching2->man;
 
-
-		getBlockingPairs( &blockingPairsSimulated );
+		getBlockingPath( &blockingPathsSimulated );
 
 		trace_msg( heuristic, 3, "Reset matching changes" );
 
@@ -549,18 +559,18 @@ StableMarriageHeuristic::getBestMatchingFromNeighbourhood(
 		removedMatching1->usedInLS = true;
 		removedMatching2->usedInLS = true;
 
-		trace_msg( heuristic, 4, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
 		addedMatching1->man->currentPartner = removedMatching1->woman;
 		removedMatching1->woman->currentPartner = addedMatching1->man;
 
-		trace_msg( heuristic, 4, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
 		removedMatching2->man->currentPartner = addedMatching1->woman;
 		addedMatching1->woman->currentPartner = removedMatching2->man;
 
-		trace_msg( heuristic, 3, "Removing " << VariableNames::getName( blockingPairsCurrent[ i ]->var ) << " leads to " << blockingPairsSimulated.size( )
-				                             << " blocking pairs" );
+		trace_msg( heuristic, 3, "Removing " << VariableNames::getName( blockingPathsCurrent[ i ]->var ) << " leads to " << blockingPathsSimulated.size( )
+				                             << " blocking paths" );
 
-		neighbourhood.push_back( pair< Match*, int >( blockingPairsCurrent[ i ], blockingPairsSimulated.size( ) ) );
+		neighbourhood.push_back( pair< Match*, int >( blockingPathsCurrent[ i ], blockingPathsSimulated.size( ) ) );
 	}
 
 	sort( neighbourhood.begin( ), neighbourhood.end( ), compareMatchesDESC );
@@ -576,173 +586,69 @@ StableMarriageHeuristic::getBestMatchingFromNeighbourhood(
 	return true;
 }
 
-///*
-// * Greedy algorithm for colouring, bin packing and connectedness
-// */
-//Literal
-//CCPHeuristic::greedyCBPC(
-//	)
-//{
-//	Var chosenVariable;
-//
-//	bool binChosen = false;
-//	bool binSearch = false;
-//	unsigned int currentVertexColour;
-//	unsigned int currentVertexBin;
-//
-//	do
-//	{
-//		if ( !orderingValid )
-//			return Literal::null;
-//
-//		chosenVariable = 0;
-//		currentV = 0;
-//		currentVertexColour = 0;
-//		currentVertexBin = 0;
-//
-//		if ( index < order.size( ) )
-//		{
-//			// if queue empty, get the next vertex of continue with the queue otherwise
-//			if ( queue.size( ) == 0 )
-//			{
-//				trace_msg( heuristic, 2, "[CBPC] Queue empty - get next vertex" );
-//
-//				if ( index > 0 )
-//				{
-//					currentColour++;
-//					trace_msg( heuristic, 3, "[CBPC] Increase colour value to " << ( currentColour + 1 ) );
-//
-//					if ( currentColour >= nrOfColors )
-//					{
-//						trace_msg( heuristic, 3, "[CBPC] No more colours available - fallback to minisat" );
-//						print( );
-//						onFinishedSolving( false );
-//						return Literal::null;
-//					}
-//				}
-//
-//				//get next vertex
-//				do
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] Consider vertex " << order[ index ]->name <<
-//							( ( order[ index ]->considered == true ) ? " (already considered)" : "" ) );
-//
-//					if ( !order[ index++ ]->considered )
-//						currentV = order[ index - 1 ];
-//
-//				} while ( currentV == 0 && index < order.size( ) );
-//
-//				if ( currentV == 0 )
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] No more vertices - fallback to minisat" );
-//					print( );
-//					onFinishedSolving( false );
-//					return Literal::null;
-//				}
-//
-//				queuePushBack( currentV );
-//			}
-//			else
-//			{
-//				currentV = queueGetFirst( );
-//
-//				trace_msg( heuristic, 2, "[CBPC] Get next element in queue (" << "Consider vertex " << currentV->name <<
-//						( ( currentV->considered == true ) ? " (already considered)" : "" ) << ")" );
-//			}
-//
-//			// check if the vertex is already coloured or colour it otherwise
-//			currentVertexColour = getVertexColour( currentV );
-//			if ( currentVertexColour == 0 )
-//			{
-//				trace_msg( heuristic, 3, "[CBPC] Vertex not coloured - use colour " << ( currentColour + 1 ) <<
-//						" (chosen variable is " << currentV->allColours[ currentColour ]->var << " " <<
-//						VariableNames::getName( currentV->allColours[ currentColour ]->var ) << ")" );
-//				chosenVariable = currentV->allColours[ currentColour ]->var;
-//			}
-//			else
-//			{
-//				if ( ( currentVertexColour - 1 ) == currentColour )
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] Vertex already coloured with colour " << ( currentVertexColour ) << " - find bin" );
-//					currentVertexBin = getVertexBin( currentV );
-//				}
-//			}
-//
-//			// find a bin for the vertex if no bin is assigned to it yet
-//			if ( chosenVariable == 0 && ( currentVertexColour - 1 ) == currentColour && currentVertexBin == 0 )
-//			{
-//				binSearch = true;
-//
-//				for ( unsigned int i = 0; i < nrOfBins && chosenVariable == 0; i++ )
-//				{
-//					if ( getUsedBinSize( i, currentColour ) + currentV->size <= maxBinSize )
-//					{
-//						trace_msg( heuristic, 3, "[CBPC] Place vertex in bin " << ( i + 1 ) << " (chosen variable is " << currentV->allBins[ i ]->var <<
-//								" " << VariableNames::getName( currentV->allBins[ i ]->var ) << ")" );
-//						chosenVariable = currentV->allBins[ i ]->var;
-//						binChosen = true;
-//					}
-//				}
-//			}
-//
-//			// check chosen variable
-//			if ( chosenVariable == 0 )
-//			{
-//				if ( ( currentVertexColour - 1 ) != currentColour )
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] Vertex " << currentV->name << " is not coloured in the current colour - ignore it" );
-//					queueEraseFirst( );
-//				}
-//				else if ( binSearch )
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] No bin found for vertex " << currentV->name << " - ignore it" );
-//					queueEraseFirst( );
-//					currentV->considered = true;
-//				}
-//				else if ( currentVertexBin != 0 )
-//				{
-//					trace_msg( heuristic, 3, "[CBPC] Vertex already placed in bin " << ( currentVertexBin ) );
-//					queueEraseFirst( );
-//					queueAddNeighbours( currentV );
-//					currentV->considered = true;
-//				}
-//			}
-//			else if ( solver.getTruthValue( chosenVariable ) == TRUE )
-//			{
-//				trace_msg( heuristic, 3, "[CBPC] Chosen variable already set to true - continue" );
-//				if ( binChosen )
-//				{
-//					queueEraseFirst( );
-//					currentV->considered = true;
-//				}
-//			}
-//			else if ( solver.getTruthValue( chosenVariable ) == FALSE )
-//			{
-//				trace_msg( heuristic, 3, "[CBPC] Chosen variable already set to false - continue" );
-//				queueEraseFirst( );
-//			}
-//			else if ( solver.getTruthValue( chosenVariable ) == UNDEFINED )
-//			{
-//				trace_msg( heuristic, 3, "[CBPC] Chosen variable is undefined - return" );
-//			}
-//			else
-//			{
-//				if ( binChosen )
-//				{
-//					queueEraseFirst( );
-//					queueAddNeighbours( currentV );
-//					currentV->considered = true;
-//				}
-//			}
-//		}
-//
-//		nIterations++;
-//	}
-//	while ( chosenVariable == 0 || solver.getTruthValue( chosenVariable ) != UNDEFINED );
-//
-//	nChoices++;
-//	return Literal( chosenVariable, POSITIVE );
-//}
+bool
+StableMarriageHeuristic::getRandomBlockingPath(
+	Match** randomBlockingPath )
+{
+	vector< Match* > blockingPathsCurrent;
+
+	trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
+
+	if ( !getBlockingPath( &blockingPathsCurrent ) )
+	{
+		trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
+		return false;
+	}
+
+	int random = rand() % blockingPathsCurrent.size( );
+	*randomBlockingPath = blockingPathsCurrent[ random ];
+
+#ifdef TRACE_ON
+	string out = "";
+	for ( unsigned int i = 0; i < blockingPathsCurrent.size( ); i++ )
+		out += VariableNames::getName( blockingPathsCurrent[ i ]->var ) + ", ";
+
+	trace_msg( heuristic, 2, "Blocking path found: " << out );
+	trace_msg( heuristic, 2, "Chosen path (random): " << VariableNames::getName( (*randomBlockingPath)->var ) );
+#endif
+
+	return true;
+}
+
+void
+StableMarriageHeuristic::removeBlockingPath(
+	Match* blockingPath )
+{
+	Match* addedMatching1;
+	Match* addedMatching2;
+	Match* removedMatching1;
+	Match* removedMatching2;
+
+	trace_msg( heuristic, 2, "Remove blocking path " << VariableNames::getName( blockingPath->var ) << "..." );
+
+	addedMatching1 = blockingPath;
+	removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
+	removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
+	addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
+
+	trace_msg( heuristic, 3, "Add " << VariableNames::getName( addedMatching1->var )
+									<< " and " << VariableNames::getName( addedMatching2->var )
+									<< ", remove " << VariableNames::getName( removedMatching1->var )
+									<< " and " << VariableNames::getName( removedMatching2->var ) );
+
+	addedMatching1->usedInLS = true;
+	addedMatching2->usedInLS = true;
+	removedMatching1->usedInLS = false;
+	removedMatching2->usedInLS = false;
+
+	trace_msg( heuristic, 4, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
+	addedMatching1->man->currentPartner = addedMatching1->woman;
+	addedMatching1->woman->currentPartner = addedMatching1->man;
+
+	trace_msg( heuristic, 4, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
+	removedMatching2->man->currentPartner = removedMatching1->woman;
+	removedMatching1->woman->currentPartner = removedMatching2->man;
+}
 
 /*
  * solver found conflict
@@ -751,9 +657,7 @@ void
 StableMarriageHeuristic::conflictOccurred(
 	)
 {
-//	trace_msg( heuristic, 1, "Conflict occured" );
-//	nConflicts++;
-//	resetHeuristic( );
+	minisat->conflictOccurred( );
 }
 
 /*
@@ -766,23 +670,4 @@ StableMarriageHeuristic::checkInput(
 	if ( men.size( ) > 0 && women.size( ) > 0 )
 		return true;
 	return false;
-}
-
-/*
- * reset the heuristic
- */
-void
-StableMarriageHeuristic::resetHeuristic(
-	 )
-{
-//	trace_msg( heuristic, 1, "Reset heuristic" );
-//
-//	index = 0;
-//
-//	for ( unsigned int i = 0; i < vertices.size( ); i++ )
-//		vertices[ i ].considered = false;
-//
-//	currentColour = 0;
-//
-//	queue.clear( );
 }
