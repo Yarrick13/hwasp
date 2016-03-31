@@ -94,6 +94,7 @@ class StableMarriageHeuristic : public Heuristic
         unsigned int index;
         bool runLocalSearch;
         bool marriageFound;
+        bool startingGenderMale;
 
         bool checkInput( );
         void processVariable( Var var );
@@ -102,7 +103,7 @@ class StableMarriageHeuristic : public Heuristic
         void createFullAssignment( );
         bool getBestPathFromNeighbourhood( Match** bestBlockingPath );
         bool getRandomBlockingPath( Match** randomBlockingPath );
-        bool getBlockingPath( vector< Match* >* blockingPairs );
+        bool getBlockingPath( vector< Match* >* blockingPaths, bool removeDominated );
         void removeBlockingPath( Match* blockingPath );
 };
 
