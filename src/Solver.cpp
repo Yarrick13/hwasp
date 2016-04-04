@@ -64,6 +64,13 @@ Solver::~Solver()
         aggregates.pop_back();
     }
     
+    while( !externalPropagators.empty() )
+    {
+        assert( externalPropagators.back() );
+        delete externalPropagators.back();
+        externalPropagators.pop_back();
+    }
+    
     while( !cyclicComponents.empty() )
     {
         delete cyclicComponents.back();
