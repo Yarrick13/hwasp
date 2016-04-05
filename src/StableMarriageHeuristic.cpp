@@ -77,7 +77,7 @@ StableMarriageHeuristic::processVariable (
 				Person p;
 				p.var = v;
 				p.name = tmp;
-				p.id = strtoul( tmp.substr(2).c_str(), NULL, 0 ) - 1;
+				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				men.push_back( p );
@@ -101,7 +101,7 @@ StableMarriageHeuristic::processVariable (
 				Person p;
 				p.var = v;
 				p.name = tmp;
-				p.id = strtoul( tmp.substr(2).c_str(), NULL, 0 ) - 1;
+				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				women.push_back( p );
@@ -113,8 +113,8 @@ StableMarriageHeuristic::processVariable (
 
 			Match m;
 			m.var = v;
-			m.manId = strtoul( tmp.substr(2).c_str(), NULL, 0 ) - 1;;
-			m.womanId = strtoul( tmp2.substr(2).c_str(), NULL, 0 ) - 1;;
+			m.manId = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;;
+			m.womanId = strtoul( tmp2.substr(1).c_str(), NULL, 0 ) - 1;;
 
 			matchesInput.push_back( m );
 		}
@@ -176,7 +176,9 @@ compareMatchesASC(
 	StableMarriageHeuristic::Match m1,
 	StableMarriageHeuristic::Match m2 )
 {
-	if ( m1.manId < m2.manId && m1.womanId < m2.womanId )
+	if ( m1.manId < m2.manId )
+		return true;
+	if ( m1.manId == m2.manId && m1.womanId < m2.womanId )
 		return true;
 	return false;
 };
@@ -191,7 +193,7 @@ StableMarriageHeuristic::initData(
 
 	//-------------------------------------------------------
 
-	trace_msg( heuristic, 2, "Initialize preference lists (ID/Pref) and matching references..." );
+	trace_msg( heuristic, 2, "Initialize matching references..." );
 	for ( unsigned int i = 0; i < size; i++ )
 	{
 		for ( unsigned int j = 0; j < size; j++ )
@@ -219,7 +221,7 @@ StableMarriageHeuristic::initData(
 		vector< Match* > m;
 
 		for ( unsigned int j = 0; j < size; j++ )
-			m.push_back( &matchesInput[ i * 4 + j ] );
+			m.push_back( &matchesInput[ i * size + j ] );
 
 		matches.push_back( m );
 	}
@@ -239,6 +241,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 
 		if ( elapsed_seconds.count( ) > timeout )
 		{
+			trace_msg( heuristic, 1, "Run local search..." );
 			runLocalSearch = true;
 		}
 	}
@@ -297,7 +300,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 
 		} while ( blockingPathsRemaining && steps < maxSteps );
 
-		trace_msg( heuristic, 2, "Send assignment to solver..." );
+		trace_msg( heuristic, 2, "Prepare assignment to send to solver..." );
 		for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
 		{
 			if ( matchesInput[ i ].usedInLS )
@@ -307,6 +310,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 		index = 0;
 		runLocalSearch = false;
 		start = std::chrono::system_clock::now();
+		trace_msg( heuristic, 1, "Fallback..." );
 	}
 
 	if ( index < matchesInMarriage.size( ) )
@@ -540,10 +544,12 @@ StableMarriageHeuristic::getBlockingPath(
 			}
 		}
 
+#ifdef TRACE_ON
 		string output = "";
 		for ( unsigned int i = 0; i < undominatedTemp.size( ); i++ )
 			output += VariableNames::getName( undominatedTemp.at( i )->var ) + ", ";
 		trace_msg( heuristic, 3, "Dominated paths after first check: " << output );
+#endif
 
 		startingGenderMale = !startingGenderMale;
 
@@ -600,10 +606,13 @@ StableMarriageHeuristic::getBlockingPath(
 			}
 		}
 
+#ifdef TRACE_ON
 		output = "";
 		for ( unsigned int i = 0; i < undominated.size( ); i++ )
 			output += VariableNames::getName( undominated.at( i )->var ) + ", ";
 		trace_msg( heuristic, 3, "Dominated paths after second check: " << output );
+#endif
+
 		//-----------------------------------------------------------
 
 		*blockingPathsUndominated = undominated;
