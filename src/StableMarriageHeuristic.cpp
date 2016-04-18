@@ -34,7 +34,8 @@ StableMarriageHeuristic::StableMarriageHeuristic(
     Solver& s,
 	float randomWalkProbability,
 	unsigned int maxSteps,
-	unsigned int timeoutDefault ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeoutDefault ),
+	unsigned int timeoutDefault,
+	unsigned int samplingTimeoutDefault ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
 	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true )
 {
 	minisat = new MinisatHeuristic( s );
@@ -344,7 +345,10 @@ StableMarriageHeuristic::createFullAssignment(
 	)
 {
 	trace_msg( heuristic, 2, "Creating full assignment..." );
-	matchesUsedInLS.clear( );
+
+#ifdef TRACE_ON
+    vector< Match* > matchesUsedInLS;
+#endif
 
 	trace_msg( heuristic, 3, "Analyze partial assignment..." );
 	vector< int > unmachtedMen;
@@ -375,7 +379,9 @@ StableMarriageHeuristic::createFullAssignment(
 				unmachtedMen.erase( std::remove( unmachtedMen.begin( ), unmachtedMen.end( ), matchesInput[ i ].manId ), unmachtedMen.end( ) );
 				unmachtedWomen.erase( std::remove( unmachtedWomen.begin( ), unmachtedWomen.end( ), matchesInput[ i ].womanId ), unmachtedWomen.end( ) );
 
+#ifdef TRACE_ON
 				matchesUsedInLS.push_back( &matchesInput[ i ] );
+#endif
 			}
 			else
 			{
@@ -409,6 +415,7 @@ StableMarriageHeuristic::createFullAssignment(
 
 //	fixed matching for sample
 
+//#ifdef TRACE_ON
 //	matches[ 2 ][ 2 ]->usedInLS = true;
 //	matchesUsedInLS.push_back( matches[ 2 ][ 2 ] );
 //	matches[ 2 ][ 2 ]->man->currentPartner = matches[ 2 ][ 2 ]->woman;
@@ -428,6 +435,7 @@ StableMarriageHeuristic::createFullAssignment(
 //	matchesUsedInLS.push_back( matches[ 3 ][ 0 ] );
 //	matches[ 3 ][ 0 ]->man->currentPartner = matches[ 3 ][ 0 ]->woman;
 //	matches[ 3 ][ 0 ]->woman->currentPartner = matches[ 3 ][ 0 ]->man;
+//#endif
 
 	int rm, rw;
 	while ( unmachtedMen.size( ) > 0 )
@@ -436,7 +444,9 @@ StableMarriageHeuristic::createFullAssignment(
 		rw = rand() % unmachtedWomen.size( );
 
 		matches[ unmachtedMen[ rm ] ][ unmachtedWomen[ rw ] ]->usedInLS = true;
+#ifdef TRACE_ON
 		matchesUsedInLS.push_back( matches[ unmachtedMen[ rm ] ][ unmachtedWomen[ rw ] ] );
+#endif
 
 		trace_msg( heuristic, 4, "Match man (id) " + to_string( unmachtedMen[ rm ] ) + " and women (id) " + to_string( unmachtedWomen[ rw ] ) );
 
@@ -466,6 +476,7 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 {
 	trace_msg( heuristic, 3, "==========sim start==============" );
 	vector< Match* > blockingPaths;
+	vector< Match* > blockingPathsUndominated;
 
 	unsigned nbp = 0;
 	Person* currentPartnerM;
@@ -575,6 +586,16 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 		out += VariableNames::getName( blockingPaths.at( i )->var ) + ", ";
 
 	trace_msg( heuristic, 3, "All blocking paths: " << out );
+#endif
+
+	removeDominatedPaths( blockingPaths, &blockingPathsUndominated );
+
+#ifdef TRACE_ON
+	out = "";
+	for ( unsigned int i = 0; i < blockingPathsUndominated.size( ); i++ )
+		out += VariableNames::getName( blockingPathsUndominated.at( i )->var ) + ", ";
+
+	trace_msg( heuristic, 3, "All undominated blocking paths: " << out );
 	trace_msg( heuristic, 3, "==========sim end==============" );
 #endif
 
@@ -646,137 +667,7 @@ StableMarriageHeuristic::getBlockingPaths(
 	//-----------------------------------------------------------
 	if ( removeDominated && blockingPaths.size( ) > 1 )
 	{
-		vector< Match* >undominatedTemp;
-		vector< Match* >undominated;
-		Match* best;
-		vector< int > consideredMen;
-		vector< int > consideredWomen;
-
-		trace_msg( heuristic, 3, "Removing dominated paths for " << ( startingGenderMale ? "men" : "women" ) << "..." );
-		for ( unsigned int i = 0; i < blockingPaths.size( ); i++ )
-		{
-			if ( startingGenderMale )
-			{
-				trace_msg( heuristic, 4, "Considering " << VariableNames::getName( blockingPaths[ i ]->var ) );
-				if ( find( consideredMen.begin( ), consideredMen.end( ), blockingPaths[ i ]->manId ) == consideredMen.end( ) )
-				{
-					consideredMen.push_back( blockingPaths[ i ]->manId );
-					best = blockingPaths[ i ];
-					trace_msg( heuristic, 4, "Removing dominated paths for " << best->man->name  << "..." );
-
-					for ( unsigned int j = i + 1; j < blockingPaths.size( ); j++ )
-					{
-						trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
-						if ( blockingPaths[ j ]->manId == best->manId &&
-							 ( best->man->preferncesInput.find( blockingPaths[ j ]->woman->name )->second > best->man->preferncesInput.find( best->woman->name )->second ) )
-						{
-							best = blockingPaths[ j ];
-							trace_msg( heuristic, 6, "new best found" );
-						}
-					}
-
-					trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->man->name );
-					undominatedTemp.push_back( best );
-				}
-			}
-			else
-			{
-				trace_msg( heuristic, 4, "Considering " << VariableNames::getName( blockingPaths[ i ]->var ) );
-				if ( find( consideredWomen.begin( ), consideredWomen.end( ), blockingPaths[ i ]->womanId ) == consideredWomen.end( ) )
-				{
-					consideredWomen.push_back( blockingPaths[ i ]->womanId );
-					best = blockingPaths[ i ];
-					trace_msg( heuristic, 4, "Removing dominated paths for " << best->woman->name  << "..." );
-
-					for ( unsigned int j = i + 1; j < blockingPaths.size( ); j++ )
-					{
-						trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
-						if ( blockingPaths[ j ]->womanId == best->womanId &&
-							 ( best->woman->preferncesInput.find( blockingPaths[ j ]->man->name )->second > best->woman->preferncesInput.find( best->man->name )->second ) )
-						{
-							best = blockingPaths[ j ];
-							trace_msg( heuristic, 6, "new best found" );
-						}
-					}
-
-					trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->woman->name );
-					undominatedTemp.push_back( best );
-				}
-			}
-		}
-
-#ifdef TRACE_ON
-		string output = "";
-		for ( unsigned int i = 0; i < undominatedTemp.size( ); i++ )
-			output += VariableNames::getName( undominatedTemp.at( i )->var ) + ", ";
-		trace_msg( heuristic, 3, "Dominated paths after first check: " << output );
-#endif
-
-		startingGenderMale = !startingGenderMale;
-
-		trace_msg( heuristic, 3, "Removing dominated paths for " << ( startingGenderMale ? "men" : "women" ) << "..." );
-		for ( unsigned int i = 0; i < undominatedTemp.size( ); i++ )
-		{
-			if ( startingGenderMale )
-			{
-				trace_msg( heuristic, 4, "Considering " << VariableNames::getName( undominatedTemp[ i ]->var ) );
-				if ( find( consideredMen.begin( ), consideredMen.end( ), undominatedTemp[ i ]->manId ) == consideredMen.end( ) )
-				{
-					consideredMen.push_back( undominatedTemp[ i ]->manId );
-					best = undominatedTemp[ i ];
-					trace_msg( heuristic, 4, "Removing dominated paths for " << best->man->name  << "..." );
-
-					for ( unsigned int j = i + 1; j < undominatedTemp.size( ); j++ )
-					{
-						trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
-						if ( undominatedTemp[ j ]->manId == best->manId &&
-							 ( best->man->preferncesInput.find( undominatedTemp[ j ]->woman->name )->second > best->man->preferncesInput.find( best->woman->name )->second ) )
-						{
-							best = undominatedTemp[ j ];
-							trace_msg( heuristic, 6, "new best found" );
-						}
-					}
-
-					trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->man->name );
-					undominated.push_back( best );
-				}
-			}
-			else
-			{
-				trace_msg( heuristic, 4, "Considering " << VariableNames::getName( undominatedTemp[ i ]->var ) );
-				if ( find( consideredWomen.begin( ), consideredWomen.end( ), undominatedTemp[ i ]->womanId ) == consideredWomen.end( ) )
-				{
-					consideredWomen.push_back( undominatedTemp[ i ]->womanId );
-					best = undominatedTemp[ i ];
-					trace_msg( heuristic, 4, "Removing dominated paths for " << best->woman->name  << "..." );
-
-					for ( unsigned int j = i + 1; j < undominatedTemp.size( ); j++ )
-					{
-						trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
-						if ( undominatedTemp[ j ]->womanId == best->womanId &&
-							 ( best->woman->preferncesInput.find( undominatedTemp[ j ]->man->name )->second > best->woman->preferncesInput.find( best->man->name )->second ) )
-						{
-							best = undominatedTemp[ j ];
-							trace_msg( heuristic, 6, "new best found" );
-						}
-					}
-
-					trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->woman->name );
-					undominated.push_back( best );
-				}
-			}
-		}
-
-#ifdef TRACE_ON
-		output = "";
-		for ( unsigned int i = 0; i < undominated.size( ); i++ )
-			output += VariableNames::getName( undominated.at( i )->var ) + ", ";
-		trace_msg( heuristic, 3, "Dominated paths after second check: " << output );
-#endif
-
-		//-----------------------------------------------------------
-
-		*blockingPathsUndominated = undominated;
+		removeDominatedPaths( blockingPaths, blockingPathsUndominated );
 	}
 	else
 	{
@@ -788,11 +679,148 @@ StableMarriageHeuristic::getBlockingPaths(
 	return true;
 }
 
+void
+StableMarriageHeuristic::removeDominatedPaths(
+	vector< Match* > blockingPaths,
+	vector< Match* >* undomiatedPaths )
+{
+	vector< Match* >undominatedTemp;
+	vector< Match* >undominated;
+	Match* best;
+	vector< int > consideredMen;
+	vector< int > consideredWomen;
+
+	trace_msg( heuristic, 3, "Removing dominated paths for " << ( startingGenderMale ? "men" : "women" ) << "..." );
+	for ( unsigned int i = 0; i < blockingPaths.size( ); i++ )
+	{
+		if ( startingGenderMale )
+		{
+			trace_msg( heuristic, 4, "Considering " << VariableNames::getName( blockingPaths[ i ]->var ) );
+			if ( find( consideredMen.begin( ), consideredMen.end( ), blockingPaths[ i ]->manId ) == consideredMen.end( ) )
+			{
+				consideredMen.push_back( blockingPaths[ i ]->manId );
+				best = blockingPaths[ i ];
+				trace_msg( heuristic, 4, "Removing dominated paths for " << best->man->name  << "..." );
+
+				for ( unsigned int j = i + 1; j < blockingPaths.size( ); j++ )
+				{
+					trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
+					if ( blockingPaths[ j ]->manId == best->manId &&
+						 ( best->man->preferncesInput.find( blockingPaths[ j ]->woman->name )->second > best->man->preferncesInput.find( best->woman->name )->second ) )
+					{
+						best = blockingPaths[ j ];
+						trace_msg( heuristic, 6, "new best found" );
+					}
+				}
+
+				trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->man->name );
+				undominatedTemp.push_back( best );
+			}
+		}
+		else
+		{
+			trace_msg( heuristic, 4, "Considering " << VariableNames::getName( blockingPaths[ i ]->var ) );
+			if ( find( consideredWomen.begin( ), consideredWomen.end( ), blockingPaths[ i ]->womanId ) == consideredWomen.end( ) )
+			{
+				consideredWomen.push_back( blockingPaths[ i ]->womanId );
+				best = blockingPaths[ i ];
+				trace_msg( heuristic, 4, "Removing dominated paths for " << best->woman->name  << "..." );
+
+				for ( unsigned int j = i + 1; j < blockingPaths.size( ); j++ )
+				{
+					trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
+					if ( blockingPaths[ j ]->womanId == best->womanId &&
+						 ( best->woman->preferncesInput.find( blockingPaths[ j ]->man->name )->second > best->woman->preferncesInput.find( best->man->name )->second ) )
+					{
+						best = blockingPaths[ j ];
+						trace_msg( heuristic, 6, "new best found" );
+					}
+				}
+
+				trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->woman->name );
+				undominatedTemp.push_back( best );
+			}
+		}
+	}
+
+#ifdef TRACE_ON
+	string output = "";
+	for ( unsigned int i = 0; i < undominatedTemp.size( ); i++ )
+		output += VariableNames::getName( undominatedTemp.at( i )->var ) + ", ";
+	trace_msg( heuristic, 3, "Dominated paths after first check: " << output );
+#endif
+
+	startingGenderMale = !startingGenderMale;
+
+	trace_msg( heuristic, 3, "Removing dominated paths for " << ( startingGenderMale ? "men" : "women" ) << "..." );
+	for ( unsigned int i = 0; i < undominatedTemp.size( ); i++ )
+	{
+		if ( startingGenderMale )
+		{
+			trace_msg( heuristic, 4, "Considering " << VariableNames::getName( undominatedTemp[ i ]->var ) );
+			if ( find( consideredMen.begin( ), consideredMen.end( ), undominatedTemp[ i ]->manId ) == consideredMen.end( ) )
+			{
+				consideredMen.push_back( undominatedTemp[ i ]->manId );
+				best = undominatedTemp[ i ];
+				trace_msg( heuristic, 4, "Removing dominated paths for " << best->man->name  << "..." );
+
+				for ( unsigned int j = i + 1; j < undominatedTemp.size( ); j++ )
+				{
+					trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
+					if ( undominatedTemp[ j ]->manId == best->manId &&
+						 ( best->man->preferncesInput.find( undominatedTemp[ j ]->woman->name )->second > best->man->preferncesInput.find( best->woman->name )->second ) )
+					{
+						best = undominatedTemp[ j ];
+						trace_msg( heuristic, 6, "new best found" );
+					}
+				}
+
+				trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->man->name );
+				undominated.push_back( best );
+			}
+		}
+		else
+		{
+			trace_msg( heuristic, 4, "Considering " << VariableNames::getName( undominatedTemp[ i ]->var ) );
+			if ( find( consideredWomen.begin( ), consideredWomen.end( ), undominatedTemp[ i ]->womanId ) == consideredWomen.end( ) )
+			{
+				consideredWomen.push_back( undominatedTemp[ i ]->womanId );
+				best = undominatedTemp[ i ];
+				trace_msg( heuristic, 4, "Removing dominated paths for " << best->woman->name  << "..." );
+
+				for ( unsigned int j = i + 1; j < undominatedTemp.size( ); j++ )
+				{
+					trace_msg( heuristic, 5, "Considering " << VariableNames::getName( blockingPaths[ j ]->var ) << "..." );
+					if ( undominatedTemp[ j ]->womanId == best->womanId &&
+						 ( best->woman->preferncesInput.find( undominatedTemp[ j ]->man->name )->second > best->woman->preferncesInput.find( best->man->name )->second ) )
+					{
+						best = undominatedTemp[ j ];
+						trace_msg( heuristic, 6, "new best found" );
+					}
+				}
+
+				trace_msg( heuristic, 4, "Setting " << VariableNames::getName( best->var ) << " as best for " << best->woman->name );
+				undominated.push_back( best );
+			}
+		}
+	}
+
+#ifdef TRACE_ON
+	output = "";
+	for ( unsigned int i = 0; i < undominated.size( ); i++ )
+		output += VariableNames::getName( undominated.at( i )->var ) + ", ";
+	trace_msg( heuristic, 3, "Dominated paths after second check: " << output );
+#endif
+
+	*undomiatedPaths = undominated;
+}
+
 bool
 StableMarriageHeuristic::getBestPathFromNeighbourhood(
 	Match** bestBlockingPath )
 {
 	vector< Match* > blockingPathsCurrent;
+	vector< unsigned int > bpPosition;
     unsigned int bestBlockingPathValue = UINT_MAX;
     unsigned int bestBlockingPathScore = 0;
     unsigned int nbp = UINT_MAX;
@@ -814,13 +842,26 @@ StableMarriageHeuristic::getBestPathFromNeighbourhood(
 		Match* addedMatching2;
 		Match* removedMatching1;
 		Match* removedMatching2;
+		Match* blockingPathCurrent;
 
 		for ( unsigned int i = 0; i < blockingPathsCurrent.size( ); i++ )
 		{
-			trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( blockingPathsCurrent[ i ]->var ) << "..." );
+			bpPosition.push_back( i );
+		}
+
+		start = std::chrono::system_clock::now();
+		bool stopSampling = false;
+
+		while ( bpPosition.size( ) > 0 && !stopSampling )
+		{
+			unsigned int randPos = rand() % bpPosition.size( );
+			blockingPathCurrent = blockingPathsCurrent[ bpPosition[ randPos ] ];
+			bpPosition.erase( bpPosition.begin( ) + randPos );
+
+			trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( blockingPathCurrent->var ) << "..." );
 			vector< Match* > toCheck;
 
-			addedMatching1 = blockingPathsCurrent[ i ];
+			addedMatching1 = blockingPathCurrent;
 			removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
 			removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
 			addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
@@ -865,16 +906,29 @@ StableMarriageHeuristic::getBestPathFromNeighbourhood(
 			addedMatching1->woman->currentPartner = removedMatching2->man;
 
 
-			trace_msg( heuristic, 3, "Removing " << VariableNames::getName( blockingPathsCurrent[ i ]->var ) << " leads to " << nbp << " blocking paths" );
+			trace_msg( heuristic, 3, "Removing " << VariableNames::getName( blockingPathCurrent->var ) << " leads to " << nbp << " blocking paths" );
 
 			score = addedMatching1->man->preferncesInput.find( addedMatching1->woman->name )->second +
 					addedMatching1->woman->preferncesInput.find( addedMatching1->man->name )->second;
 			if ( nbp < bestBlockingPathValue || ( nbp == bestBlockingPathValue && score > bestBlockingPathScore ) )
 			{
-				trace_msg( heuristic, 3, "Found better blocking path " << VariableNames::getName( blockingPathsCurrent[ i ]->var ) << " with nbp " << nbp << " and score " << score );
-				*bestBlockingPath = blockingPathsCurrent[ i ];
+				trace_msg( heuristic, 3, "Found better blocking path " << VariableNames::getName( blockingPathCurrent->var ) << " with nbp " << nbp << " and score " << score );
+				*bestBlockingPath = blockingPathCurrent;
 				bestBlockingPathValue = nbp;
 				bestBlockingPathScore = score;
+			}
+
+			end = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end-start;
+
+			if ( elapsed_seconds.count( ) > samplingTimeout )
+			{
+				trace_msg( heuristic, 2, "Sampling timeout..." );
+				stopSampling = true;
+			}
+			else
+			{
+				trace_msg( heuristic, 2, "Current sampling time: " << elapsed_seconds.count( ) << " seconds" );
 			}
 		}
 
@@ -883,7 +937,7 @@ StableMarriageHeuristic::getBestPathFromNeighbourhood(
 		for ( unsigned int i = 0; i < blockingPathsCurrent.size( ); i++ )
 			out += VariableNames::getName( blockingPathsCurrent[ i ]->var ) + ", ";
 
-		trace_msg( heuristic, 2, "Blocking path found: " << out );
+		trace_msg( heuristic, 2, "Blocking path found: " << out << "(nbp: " << bestBlockingPathValue << ", score: " << bestBlockingPathScore << ")" );
 		trace_msg( heuristic, 2, "Best blocking path to remove: " << VariableNames::getName( (*bestBlockingPath)->var ) );
 #endif
 	}

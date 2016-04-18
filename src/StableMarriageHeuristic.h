@@ -27,7 +27,7 @@
 class StableMarriageHeuristic : public Heuristic
 {
     public:
-		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout );
+		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout, unsigned int samplingTimeout );
         ~StableMarriageHeuristic( ) { minisat->~Heuristic( ); }
         void onNewVariable( Var v ){ variables.push_back( v ); minisat->onNewVariable( v ); }
         void onNewVariableRuntime( Var v ){ minisat->onNewVariableRuntime( v ); }
@@ -77,7 +77,6 @@ class StableMarriageHeuristic : public Heuristic
         vector< Person > women;
         vector< Match > matchesInput;
         vector< vector< Match* > > matches;
-        vector< Match* > matchesUsedInLS;
         vector< Match* > matchesInMarriage;
 
         std::chrono::time_point<std::chrono::system_clock> start, starttime, end;
@@ -88,6 +87,7 @@ class StableMarriageHeuristic : public Heuristic
         unsigned int steps;
         unsigned int maxSteps;
         unsigned int timeout;
+        unsigned int samplingTimeout;
         unsigned int size;
         bool inputCorrect;
 
@@ -105,6 +105,7 @@ class StableMarriageHeuristic : public Heuristic
         bool getBestPathFromNeighbourhood( Match** bestBlockingPath );
         bool getRandomBlockingPath( Match** randomBlockingPath );
         bool getBlockingPaths( vector< Match* >* blockingPaths, bool removeDominated );
+        void removeDominatedPaths( vector< Match* > blockingPaths, vector< Match* >* undomiatedPaths );
         unsigned int getBlockingPathsSampling( vector< Match* > bpToCheck );
         void removeBlockingPath( Match* blockingPath );
 };
