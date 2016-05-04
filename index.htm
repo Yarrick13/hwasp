@@ -1,9 +1,68 @@
 <!DOCTYPE html>
-<html>
+
+<html lang="en">
 <head>
-  <title>HWASP</title>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <title>Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems</title>
+  
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
 </head>
+  
 <body>
-  <h1>HWASP</h1>
+  <h1>Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems</h1>
+  <p class="lead">
+    This website contains <a href="#resources">binaries</a> and a more detailed version of the <a href="#results">evaluation results</a> discussed in our <a href="http://software.imdea.org/Conferences/ICLP2016/">ICLP-16</a> submission &quot;Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems&quot;.
+  </p>
+  
+  <h2 id="resources">Resources</h2>
+  <p>
+    The following resources are available:
+  </p>
+  <ul>
+    <li><a title="Tarball with the encodings" href="#">Encodings</a> for PUP and CCP</li>
+    <li><a title="Tarball with the instances" href="#">Instances</a> for PUP and CCP</li>
+    <li><a title="Binaries for linux" href="#">Binaries (linux)</a> of the heurstic solver</li>
+    <li><a title="Binaries for linux (python support)" href="#">Binaries (linux with python support)</a> of the heurstic solver</li>
+    <li><a title="Binaries for windows" href="#">Binaries (windows)</a> of the heuristic solver</li>
+  </ul>
+  
+  <h2 id="usage">Usage</h2>
+  <p>
+    Make sure that the <a title="Grounder gringo" href="http://potassco.sourceforge.net#gringo">gringo 4.x</a> binaries are available on the <code>PATH</code>.
+	Use the commands
+	<code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-pup=[heuristic]</code>
+	and
+	<code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-ccp=[heuristic]</code>
+	to execute a benchmark for PUP and CCP, respectively.
+    To run the CCP heuristic in python, execute the command
+    <code class="block">gringo [encoding] [instance] | ./hwasp_python --heuristic-interpreter=python --heuristic-scriptname=heuristic-ccp</code>	
+	Note that <code>[encoding]</code> and <code>[instance]</code> are the files containing both the problem encoding and an instance of the problem, respectively.
+	Furthermore, <code>[heuristic]</code> dertermines which heuristic shall be executed.
+	See the table below for all posibile values.
+  </p>
+  
+  <table>
+    <colgroup>
+	  <col style="width: 50%">
+	  <col style="width: 50%">
+	</colgroup>
+    <thead>
+	  <tr><th>PUP</th><th>CCP</th></tr>
+	</thead>
+	<tbody>
+	  <tr><td><code>QUICKPUP</code></td><td><code>A1A2</code></td></tr>
+	  <tr><td><code>QUICKPUP*</code></td><td><code>A2F</code></td></tr>
+	  <tr><td><code>PRED</code></td><td><code>A2FO</code></td></tr>
+	  <tr><td><code>PRED*</code></td><td><code>A2AFO</code></td></tr>
+	</tbody>
+  </table>
+  
+  <h2 id="results">Evaluation results</h2>
+  <p>
+    The complete results of our evaluation are located <a title="Evaluation results" href="#">here</a> (use the buttons on the bottom left hand corner to switch between the PUP and CCP results).
+  </p>
 </body>
 </html>
