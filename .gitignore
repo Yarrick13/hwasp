@@ -1,0 +1,34 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.d
+build
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Project files of Codelite
+*.project
+
+# gprof files
+gmon.out
+gprof.*
+
+# Windows files
+Thumbs.db
+Desktop.ini
+
+# Eclipse project files
+.project
+.cproject
+.settings/
+
+# GDB init file
+.gdbinit
