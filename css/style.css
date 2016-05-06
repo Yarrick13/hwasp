@@ -18,10 +18,10 @@ table > thead > tr:last-child > th { border-bottom: 1px solid black; }
 table > tbody > tr:last-child > td { border-bottom: 2px solid black; }
 
 a {outline:none !important; font-weight:bold; text-decoration:none;}
-a:link {color:#c00;}
-a:visited {color:#606;}
-a:hover {color:#606;}
-a:active {color:#900; outline:none;}
+a:link {color:#337ab7;}
+a:visited {color:#337ab7;}
+a:focus,a:hover {color:#23527c;}
+a:active {color:#23527c; outline:none;}
 
 h1 {
   font-size:200%;
