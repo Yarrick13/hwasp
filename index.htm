@@ -14,34 +14,43 @@
 <body>
   <h1>Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems</h1>
   <p class="lead">
-    This website contains <a href="#resources">binaries</a> and a more detailed version of the <a href="#results">evaluation results</a> discussed in our <a href="http://software.imdea.org/Conferences/ICLP2016/">ICLP-16</a> submission &quot;Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems&quot;.
+    This website contains <a href="#sources">sources</a>, <a href="#resources">binaries</a>, and a more detailed version of the <a href="#results">evaluation results</a> discussed in our <a href="http://software.imdea.org/Conferences/ICLP2016/">ICLP-16</a> submission &quot;Combining Answer Set Programming and Domain Heuristics for Solving Hard Industrial Problems&quot;.
   </p>
+  
+  <h2 id="sources">Source Code</h2>
+  <p>
+    All sources are published on <a title="GitHub" href="https://github.com/">GitHub</a>:
+  </p>
+  <ul>
+    <li><a title="HWASP" href="https://github.com/Yarrick13/hwasp/tree/development">WASP with C++ heuristic implementations (branch development)</a></li>
+    <li><a title="WASP" href="https://github.com/alviano/wasp/tree/plugins">WASP with python support (branch plugins)</a></li>
+    <li><a title="CCP heuristic in Python" href="https://github.com/gaste/heuristic-ccp">CCP heuristic in python (branch master)</a>
+  </ul>
   
   <h2 id="resources">Resources</h2>
   <p>
     The following resources are available:
   </p>
   <ul>
-    <li><a title="Tarball with the encodings" href="#">Encodings</a> for PUP and CCP</li>
-    <li><a title="Tarball with the instances" href="#">Instances</a> for PUP and CCP</li>
-    <li><a title="Binaries for linux" href="#">Binaries (linux)</a> of the heurstic solver</li>
-    <li><a title="Binaries for linux (python support)" href="#">Binaries (linux with python support)</a> of the heurstic solver</li>
-    <li><a title="Binaries for windows" href="#">Binaries (windows)</a> of the heuristic solver</li>
+    <li><a title="ZIP file with the encodings" href="download/encodings.zip">Encodings</a> for PUP and CCP</li>
+    <li><a title="ZIP file with the instances" href="download/instances.zip">Instances</a> for PUP and CCP</li>
+    <li><a title="Binaries for linux" href="download/binaries_linux.zip">Binaries (linux)</a> of the heurstic solver</li>
+    <li><a title="Binaries for windows" href="download/binaries_windows.zip">Binaries (windows)</a> of the heuristic solver</li>
   </ul>
   
   <h2 id="usage">Usage</h2>
   <p>
     Make sure that the <a title="Grounder gringo" href="http://potassco.sourceforge.net#gringo">gringo 4.x</a> binaries are available on the <code>PATH</code>.
-	Use the commands
-	<code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-pup=[heuristic]</code>
-	and
-	<code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-ccp=[heuristic]</code>
-	to execute a benchmark for PUP and CCP, respectively.
-    To run the CCP heuristic in python, execute the command
+    Use the commands
+    <code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-pup=[heuristic]</code>
+    and
+    <code class="block">gringo [encoding] [instance] | ./hwasp --heuristic-ccp=[heuristic]</code>
+    to execute a benchmark for PUP and CCP, respectively.
+    To run the CCP heuristic in python (linux only), execute the command
     <code class="block">gringo [encoding] [instance] | ./hwasp_python --heuristic-interpreter=python --heuristic-scriptname=heuristic-ccp</code>	
-	Note that <code>[encoding]</code> and <code>[instance]</code> are the files containing both the problem encoding and an instance of the problem, respectively.
-	Furthermore, <code>[heuristic]</code> dertermines which heuristic shall be executed.
-	See the table below for all posibile values.
+    Note that <code>[encoding]</code> and <code>[instance]</code> are the files containing both the problem encoding and an instance of the problem, respectively.
+    Furthermore, <code>[heuristic]</code> dertermines which heuristic shall be executed.
+    See the table below for all posibile values.
   </p>
   
   <table>
