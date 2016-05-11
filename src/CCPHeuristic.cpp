@@ -62,6 +62,8 @@ CCPHeuristic::processVariable (
 			vertex.var = v;
 			vertex.inPath = 0;
 			vertex.orderingValue = 0;
+			vertex.orderingValueMinor = 0;
+			vertex.consideredForOrderingValue = false;
 			vertex.nPredecessors = 0;
 			vertex.nSuccessors = 0;
 
@@ -596,6 +598,13 @@ bool compareVertexOrderValueDESC (
 	return v1->orderingValue > v2->orderingValue;
 };
 
+bool compareVertexOrderValueMinorDESC (
+	CCPHeuristic::Vertex* v1,
+	CCPHeuristic::Vertex* v2 )
+{
+	return v1->orderingValueMinor > v2->orderingValueMinor;
+};
+
 bool compareVertexInPathASC (
 	CCPHeuristic::Vertex* v1,
 	CCPHeuristic::Vertex* v2 )
@@ -939,45 +948,52 @@ CCPHeuristic::initData(
 	{
 		trace_msg( heuristic, 2, "Initialize vertex value for ordering..." );
 
-		for ( unsigned int i = 0; i < path1.size( ); i++ )
-		{
-			found = false;
-			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
-			{
-				if ( path1[ i ].compare( vertices[ j ].name ) == 0 )
-				{
-					found = true;
-					vertices[ j ].inPath = 1;
-					vertices[ j ].orderingValue++;
-				}
-			}
-		}
-
-		for ( unsigned int i = 0; i < path2.size( ); i++ )
-		{
-			found = false;
-			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
-			{
-				if ( path2[ i ].compare( vertices[ j ].name ) == 0 )
-				{
-					found = true;
-					vertices[ j ].inPath = 2;
-					vertices[ j ].orderingValue++;
-				}
-			}
-		}
+//		for ( unsigned int i = 0; i < path1.size( ); i++ )
+//		{
+//			found = false;
+//			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
+//			{
+//				if ( path1[ i ].compare( vertices[ j ].name ) == 0 )
+//				{
+//					found = true;
+//					vertices[ j ].inPath = 1;
+//					vertices[ j ].orderingValue++;
+//				}
+//			}
+//		}
+//
+//		for ( unsigned int i = 0; i < path2.size( ); i++ )
+//		{
+//			found = false;
+//			for ( unsigned int j = 0; j < vertices.size( ) && ! found; j++ )
+//			{
+//				if ( path2[ i ].compare( vertices[ j ].name ) == 0 )
+//				{
+//					found = true;
+//					vertices[ j ].inPath = 2;
+//					vertices[ j ].orderingValue++;
+//				}
+//			}
+//		}
 
 		for ( unsigned int i = 0; i < vertices.size( ); i++ )
 		{
 			if ( ( vertices[ i ].nPredecessors == 0 ) || ( vertices[ i ].nSuccessors == 0 ) )
 			{
-				vertices[ i ].orderingValue+=2;
+				vertices[ i ].orderingValue+=1;
 			}
 
 			if ( vertices[ i ].orderingValue > 0 )
 				startingVertices.push_back( &vertices[ i ] );
 		}
 
+//		for ( unsigned int i = 0; i < vertices.size( ); i++ )
+//		{
+//			addDegreeNeighbourValue( &vertices[ i ] );
+//			resetConsideredForOrderingValue( &vertices[ i ], 4 );
+//		}
+
+		//std::random_shuffle ( startingVertices.begin(), startingVertices.end() );
 		std::sort ( startingVertices.begin( ), startingVertices.end(), compareVertexOrderValueDESC );
 
 		//-------------------------------------------------------------------
@@ -1012,6 +1028,56 @@ CCPHeuristic::initData(
 	return true;
 }
 
+void
+CCPHeuristic::addDegreeNeighbourValue(
+	Vertex* vertex )
+{
+	vertex->orderingValueMinor += vertex->neighbours.size( );
+	vertex->consideredForOrderingValue = true;
+
+	for ( unsigned int i = 0; i < vertex->neighbours.size( ); i++ )
+	{
+		addDegreeNeighbourValue( vertex, vertex->neighbours[ i ], 1 );
+	}
+}
+
+void
+CCPHeuristic::addDegreeNeighbourValue(
+	Vertex* addTo,
+	Vertex* current,
+	float value )
+{
+	value = value * 0.1;
+
+	if ( value >= 0.0001 )
+	{
+		current->consideredForOrderingValue = true;
+
+		for ( unsigned int i = 0; i < current->neighbours.size( ); i++ )
+		{
+			if ( current->neighbours[ i ]->consideredForOrderingValue == false )
+			{
+				addTo->orderingValueMinor += value;
+				addDegreeNeighbourValue( addTo, current->neighbours[ i ], value );
+			}
+		}
+	}
+}
+
+void
+CCPHeuristic::resetConsideredForOrderingValue(
+	Vertex* vertex,
+	int steps )
+{
+	vertex->consideredForOrderingValue = false;
+	steps--;
+	if ( steps >= 0 )
+	{
+		for ( unsigned int i = 0; i < vertex->neighbours.size( ); i++ )
+			resetConsideredForOrderingValue( vertex->neighbours[ i ], steps );
+	}
+}
+
 /*
  * creates a new ordering
  */
@@ -1025,17 +1091,28 @@ CCPHeuristic::createOrder(
 	Vertex* start = startingVertices.front( );
 	startingVertices.erase( startingVertices.begin( ) );
 
-	start->orderingValue++;
+	start->orderingValue+=10;
+	//std::random_shuffle ( order.begin(), order.end() );
+	//std::stable_sort ( order.begin( ), order.end(), compareVertexOrderValueMinorDESC );
 	std::sort ( order.begin( ), order.end(), compareVertexOrderValueDESC );
-	start->orderingValue = 0;
+	start->orderingValue-=10;
 
 #ifdef TRACE_ON
 	string vertexOutput = "";
+
+	std::ostringstream oss;
 	for ( unsigned int i = 0; i < order.size( ); i++ )
-		vertexOutput += order[ i ]->name + ", ";
+	{
+		oss.str("");
+		oss.clear( );
+		oss << order[ i ]->orderingValue;
+		vertexOutput += order[ i ]->name + "(" + oss.str() + "), ";
+	}
 
 	trace_msg( heuristic, 2, "Consider order: " << vertexOutput );
 #endif
+
+	start->orderingValue = 0;
 
 	return true;
 }

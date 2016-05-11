@@ -101,7 +101,9 @@ class CCPHeuristic : public Heuristic
         	unsigned int size;
 
         	bool considered;
-        	unsigned int orderingValue;
+        	float orderingValue;
+        	float orderingValueMinor;
+        	bool consideredForOrderingValue;
         	bool inOrder;
         	unsigned int inPath;			// 0 for no path or >1 for the number of the path
 
@@ -201,6 +203,10 @@ class CCPHeuristic : public Heuristic
         void queueEraseFirst( );
         void queueAddNeighbours( Vertex* vertex );
         unsigned int getUsedBinSize( unsigned int bin, unsigned int colour );
+
+        void addDegreeNeighbourValue( Vertex* vertex );
+        void addDegreeNeighbourValue( Vertex* addTo, Vertex* current, float value );
+        void resetConsideredForOrderingValue( Vertex* vertex, int steps );
 
         void resetHeuristic( );
         bool createOrder( );

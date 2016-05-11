@@ -27,7 +27,7 @@
 class StableMarriageHeuristic : public Heuristic
 {
     public:
-		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout, unsigned int samplingTimeout );
+		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout, unsigned int samplingTimeout, bool useSimulatedAnnealing );
         ~StableMarriageHeuristic( ) { minisat->~Heuristic( ); }
         void onNewVariable( Var v ){ variables.push_back( v ); minisat->onNewVariable( v ); }
         void onNewVariableRuntime( Var v ){ minisat->onNewVariableRuntime( v ); }
@@ -96,6 +96,8 @@ class StableMarriageHeuristic : public Heuristic
         bool sendToSolver;
         bool marriageFound;
         bool startingGenderMale;
+        bool simAnnealing;
+        float temperature;
 
         bool checkInput( );
         void processVariable( Var var );
@@ -106,8 +108,12 @@ class StableMarriageHeuristic : public Heuristic
         bool getRandomBlockingPath( Match** randomBlockingPath );
         bool getBlockingPaths( vector< Match* >* blockingPaths, bool removeDominated );
         void removeDominatedPaths( vector< Match* > blockingPaths, vector< Match* >* undomiatedPaths );
+
         unsigned int getBlockingPathsSampling( vector< Match* > bpToCheck );
+
         void removeBlockingPath( Match* blockingPath );
+
+        bool simulatedAnnealingStep( Match** bestBockingPath );
 };
 
 #endif

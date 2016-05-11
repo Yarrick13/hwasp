@@ -23,6 +23,7 @@
 #include <map>
 #include <list>
 #include <limits.h>
+#include <math.h>
 
 #include "Solver.h"
 #include "util/Assert.h"
@@ -35,11 +36,15 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	float randomWalkProbability,
 	unsigned int maxSteps,
 	unsigned int timeoutDefault,
-	unsigned int samplingTimeoutDefault ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
-	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true )
+	unsigned int samplingTimeoutDefault,
+	bool useSimulatedAnnealing ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
+	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
+							 simAnnealing( useSimulatedAnnealing )
 {
 	minisat = new MinisatHeuristic( s );
 	srand(time(NULL));
+
+	temperature = 1;
 }
 
 /*
@@ -231,7 +236,7 @@ Literal
 StableMarriageHeuristic::makeAChoiceProtected(
 	)
 {
-	if ( !runLocalSearch )
+	if ( !runLocalSearch && !sendToSolver )
 	{
 		end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end-start;
@@ -257,27 +262,41 @@ StableMarriageHeuristic::makeAChoiceProtected(
 		{
 			trace_msg( heuristic, 2, "Starting step " << (steps++) << "..." );
 
-			if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
+			if ( !simAnnealing )
 			{
-				trace_msg( heuristic, 2, "Random step..." );
+				if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
+				{
+					trace_msg( heuristic, 2, "Random step..." );
 
-				blockingPathsRemaining = getRandomBlockingPath( &chosenBlockingPath );
+					blockingPathsRemaining = getRandomBlockingPath( &chosenBlockingPath );
+				}
+				else
+				{
+					trace_msg( heuristic, 2, "Heuristic step..." );
+
+					blockingPathsRemaining = getBestPathFromNeighbourhood( &chosenBlockingPath );
+				}
+
+				if ( blockingPathsRemaining )
+				{
+					removeBlockingPath( chosenBlockingPath );
+				}
+				else
+				{
+					marriageFound = true;
+					trace_msg( heuristic, 2, "No more blocking paths found..." );
+				}
 			}
 			else
 			{
-				trace_msg( heuristic, 2, "Heuristic step..." );
+				trace_msg( heuristic, 2, "Heuristic step (simulated annealing; temp: " << temperature << ")..." );
 
-				blockingPathsRemaining = getBestPathFromNeighbourhood( &chosenBlockingPath );
-			}
+				if ( simulatedAnnealingStep( &chosenBlockingPath ) )
+					removeBlockingPath( chosenBlockingPath );
 
-			if ( blockingPathsRemaining )
-			{
-				removeBlockingPath( chosenBlockingPath );
-			}
-			else
-			{
-				marriageFound = true;
-				trace_msg( heuristic, 2, "No more blocking paths found..." );
+				temperature= temperature * 0.9;
+				if ( temperature < 0.00001 )
+					steps = maxSteps + 1;
 			}
 
 #ifdef TRACE_ON
@@ -329,12 +348,6 @@ StableMarriageHeuristic::makeAChoiceProtected(
 		}
 
 		sendToSolver = false;
-	}
-
-	if ( index < matchesInMarriage.size( ) )
-	{
-		trace_msg( heuristic, 3, "Send " << VariableNames::getName( matchesInMarriage[ index ]->var ) << " as " << (index+1) << "th" );
-		return Literal( matchesInMarriage[ index++ ]->var, POSITIVE );
 	}
 
 	return minisat->makeAChoice( );
@@ -414,7 +427,6 @@ StableMarriageHeuristic::createFullAssignment(
 	trace_msg( heuristic, 3, "Extending partial assignment..." );
 
 //	fixed matching for sample
-
 //#ifdef TRACE_ON
 //	matches[ 2 ][ 2 ]->usedInLS = true;
 //	matchesUsedInLS.push_back( matches[ 2 ][ 2 ] );
@@ -422,7 +434,7 @@ StableMarriageHeuristic::createFullAssignment(
 //	matches[ 2 ][ 2 ]->woman->currentPartner = matches[ 2 ][ 2 ]->man;
 //
 //	matches[ 0 ][ 1 ]->usedInLS = true;
-//	matchesUsedInLS.push_back( matches[ 0 ][ 2 ] );
+//	matchesUsedInLS.push_back( matches[ 0 ][ 1 ] );
 //	matches[ 0 ][ 1 ]->man->currentPartner = matches[ 0 ][ 1 ]->woman;
 //	matches[ 0 ][ 1 ]->woman->currentPartner = matches[ 0 ][ 1 ]->man;
 //
@@ -979,6 +991,90 @@ StableMarriageHeuristic::getRandomBlockingPath(
 #endif
 
 	return true;
+}
+
+bool
+StableMarriageHeuristic::simulatedAnnealingStep(
+	Match** randomBlockingPath )
+{
+	vector< Match* > blockingPathsCurrent;
+	vector< Match* > blockingPathsSimulated;
+	Match* addedMatching1;
+	Match* addedMatching2;
+	Match* removedMatching1;
+	Match* removedMatching2;
+
+	trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
+
+	if ( !getBlockingPaths( &blockingPathsCurrent, true ) )
+	{
+		trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
+		steps = maxSteps + 1;
+		return false;
+	}
+
+	trace_msg( heuristic, 2, "There are " << blockingPathsCurrent.size( ) << " blocking paths." );
+
+	int random = rand() % blockingPathsCurrent.size( );
+	*randomBlockingPath = blockingPathsCurrent[ random ];
+
+	trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( (*randomBlockingPath)->var ) << "..." );
+
+	addedMatching1 = *randomBlockingPath;
+	removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
+	removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
+	addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
+
+	trace_msg( heuristic, 3, "Add " << VariableNames::getName( addedMatching1->var )
+									<< " and " << VariableNames::getName( addedMatching2->var )
+									<< ", remove " << VariableNames::getName( removedMatching1->var )
+									<< " and " << VariableNames::getName( removedMatching2->var ) );
+
+	addedMatching1->usedInLS = true;
+	addedMatching2->usedInLS = true;
+	removedMatching1->usedInLS = false;
+	removedMatching2->usedInLS = false;
+
+	trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
+	addedMatching1->man->currentPartner = addedMatching1->woman;
+	addedMatching1->woman->currentPartner = addedMatching1->man;
+
+	trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
+	removedMatching2->man->currentPartner = removedMatching1->woman;
+	removedMatching1->woman->currentPartner = removedMatching2->man;
+
+	getBlockingPaths( &blockingPathsSimulated, true );
+
+	trace_msg( heuristic, 3, "Reset matching changes" );
+
+	addedMatching1->usedInLS = false;
+	addedMatching2->usedInLS = false;
+	removedMatching1->usedInLS = true;
+	removedMatching2->usedInLS = true;
+
+	trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
+	addedMatching1->man->currentPartner = removedMatching1->woman;
+	removedMatching1->woman->currentPartner = addedMatching1->man;
+
+	trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
+	removedMatching2->man->currentPartner = addedMatching1->woman;
+	addedMatching1->woman->currentPartner = removedMatching2->man;
+
+	trace_msg( heuristic, 3, "Removing " << VariableNames::getName( (*randomBlockingPath)->var ) << " leads to " << blockingPathsSimulated.size( ) << " blocking paths" );
+
+	trace_msg( heuristic, 3, "The difference is " << (blockingPathsCurrent.size( ) - blockingPathsSimulated.size( )) << " and the boltzman condition is " <<
+			exp( ( blockingPathsSimulated.size( ) - blockingPathsCurrent.size( ) ) / temperature ) );
+
+//	cout << "bpsim: " << blockingPathsSimulated.size() << "; bpcurr: " << blockingPathsCurrent.size() << ", temp: " << temperature <<
+//			", boltz: " << exp( ( (double)blockingPathsCurrent.size( ) - blockingPathsSimulated.size( ) ) / temperature ) << endl;
+
+	if ( blockingPathsSimulated.size( ) <= blockingPathsCurrent.size( ) ||
+			( ((float)rand()/(float)(RAND_MAX)) * 1 ) < exp( ( (double)blockingPathsCurrent.size( ) - blockingPathsSimulated.size( ) ) / temperature ) )
+	{
+		trace_msg( heuristic, 3, "Replace current marriage" );
+		return true;
+	}
+	return false;
 }
 
 /*
