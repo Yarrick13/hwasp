@@ -38,7 +38,7 @@ class StableMarriageHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( ) { return minisat->getTreshold( ); }
-        void onFinishedSolving( bool fromSolver ) { minisat->onFinishedSolving( fromSolver ); };
+        void onFinishedSolving( bool fromSolver ) { cout << stepCount << " steps in " << heuCount << " heuristic calls" << endl; minisat->onFinishedSolving( fromSolver ); };
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
         void reset( ) { minisat->reset( ); }
@@ -78,6 +78,7 @@ class StableMarriageHeuristic : public Heuristic
         vector< Match > matchesInput;
         vector< vector< Match* > > matches;
         vector< Match* > matchesInMarriage;
+        vector< unsigned int > matchesPosition;
 
         std::chrono::time_point<std::chrono::system_clock> start, starttime, end;
 
@@ -86,6 +87,8 @@ class StableMarriageHeuristic : public Heuristic
         float randWalkProb;
         unsigned int steps;
         unsigned int maxSteps;
+        unsigned int stepCount;
+        unsigned int heuCount;
         unsigned int timeout;
         unsigned int samplingTimeout;
         unsigned int size;
@@ -109,11 +112,14 @@ class StableMarriageHeuristic : public Heuristic
         bool getBlockingPaths( vector< Match* >* blockingPaths, bool removeDominated );
         void removeDominatedPaths( vector< Match* > blockingPaths, vector< Match* >* undomiatedPaths );
 
-        unsigned int getBlockingPathsSampling( vector< Match* > bpToCheck );
+        unsigned int getBlockingPathsSampling( vector< Match* > bpToCheck, vector< Match* >* blockingPaths );
+        bool getBlockingPathRandom( Match** blockingPaths );
 
         void removeBlockingPath( Match* blockingPath );
 
-        bool simulatedAnnealingStep( Match** bestBockingPath );
+        int getBlockingPathDifference( vector< Match* > oldMatches, vector< Match* > newMatches );
+
+        bool simulatedAnnealingStep( Match** bestBockingPath, bool sampling, bool useDiffInSampling );
 };
 
 #endif

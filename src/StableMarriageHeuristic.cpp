@@ -37,7 +37,8 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	unsigned int maxSteps,
 	unsigned int timeoutDefault,
 	unsigned int samplingTimeoutDefault,
-	bool useSimulatedAnnealing ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
+	bool useSimulatedAnnealing ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ),
+							 timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
 	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
 							 simAnnealing( useSimulatedAnnealing )
 {
@@ -223,7 +224,10 @@ StableMarriageHeuristic::initData(
 		vector< Match* > m;
 
 		for ( unsigned int j = 0; j < size; j++ )
+		{
 			m.push_back( &matchesInput[ i * size + j ] );
+			matchesPosition.push_back( i * size + j );
+		}
 
 		matches.push_back( m );
 	}
@@ -260,7 +264,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 
 		do
 		{
-			trace_msg( heuristic, 2, "Starting step " << (steps++) << "..." );
+			trace_msg( heuristic, 2, "Starting step " << steps << "..." );
 
 			if ( !simAnnealing )
 			{
@@ -291,13 +295,16 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			{
 				trace_msg( heuristic, 2, "Heuristic step (simulated annealing; temp: " << temperature << ")..." );
 
-				if ( simulatedAnnealingStep( &chosenBlockingPath ) )
+				if ( simulatedAnnealingStep( &chosenBlockingPath, true, true ) )
 					removeBlockingPath( chosenBlockingPath );
 
 				temperature= temperature * 0.9;
 				if ( temperature < 0.00001 )
 					steps = maxSteps + 1;
 			}
+
+			steps++;
+			stepCount++;
 
 #ifdef TRACE_ON
 			string out = "";
@@ -318,6 +325,8 @@ StableMarriageHeuristic::makeAChoiceProtected(
 #endif
 
 		} while ( blockingPathsRemaining && steps <= maxSteps );
+
+		heuCount++;
 
 		trace_msg( heuristic, 2, "Prepare assignment to send to solver..." );
 		for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
@@ -484,13 +493,12 @@ StableMarriageHeuristic::createFullAssignment(
 
 unsigned int
 StableMarriageHeuristic::getBlockingPathsSampling(
-	vector< Match* > bpToCheck )
+	vector< Match* > bpToCheck,
+	vector< Match* >* blockingPaths )
 {
 	trace_msg( heuristic, 3, "==========sim start==============" );
-	vector< Match* > blockingPaths;
 	vector< Match* > blockingPathsUndominated;
 
-	unsigned nbp = 0;
 	Person* currentPartnerM;
 	Person* currentPartnerW;
 	Person* possiblePartnerM;
@@ -531,8 +539,7 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 						 !matches[ currentPartnerM->id ][ possiblePartnerW->id ]->lockedBySolver )
 					{
 						trace_msg( heuristic, 5, "Blocking path found" );
-						blockingPaths.push_back( matches[ currentManId ][ i ] );
-						nbp++;
+						blockingPaths->push_back( matches[ currentManId ][ i ] );
 					}
 					else
 					{
@@ -576,8 +583,7 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 						 !matches[ currentPartnerM->id ][ possiblePartnerW->id ]->lockedBySolver )
 					{
 						trace_msg( heuristic, 5, "Blocking path found" );
-						blockingPaths.push_back( matches[ i ][ currentWomanId ] );
-						nbp++;
+						blockingPaths->push_back( matches[ i ][ currentWomanId ] );
 					}
 					else
 					{
@@ -594,13 +600,13 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 
 #ifdef TRACE_ON
 	string out = "";
-	for ( unsigned int i = 0; i < blockingPaths.size( ); i++ )
-		out += VariableNames::getName( blockingPaths.at( i )->var ) + ", ";
+	for ( unsigned int i = 0; i < blockingPaths->size( ); i++ )
+		out += VariableNames::getName( blockingPaths->at( i )->var ) + ", ";
 
 	trace_msg( heuristic, 3, "All blocking paths: " << out );
 #endif
 
-	removeDominatedPaths( blockingPaths, &blockingPathsUndominated );
+	removeDominatedPaths( *blockingPaths, &blockingPathsUndominated );
 
 #ifdef TRACE_ON
 	out = "";
@@ -611,7 +617,7 @@ StableMarriageHeuristic::getBlockingPathsSampling(
 	trace_msg( heuristic, 3, "==========sim end==============" );
 #endif
 
-	return nbp;
+	return blockingPathsUndominated.size( );
 }
 
 bool
@@ -687,6 +693,74 @@ StableMarriageHeuristic::getBlockingPaths(
 	}
 
 	if ( (*blockingPathsUndominated).size( ) == 0 )
+		return false;
+	return true;
+}
+
+bool
+StableMarriageHeuristic::getBlockingPathRandom(
+	Match** blockingPath )
+{
+	trace_msg( heuristic, 3, "Looking for blocking path..." );
+
+	vector< unsigned int > matchesPositionCopy = matchesPosition;
+	std::random_shuffle ( matchesPositionCopy.begin(), matchesPositionCopy.end() );
+
+	Person* currentPartnerM;
+	Person* currentPartnerW;
+	Person* possiblePartnerM;
+	Person* possiblePartnerW;
+	bool found = false;
+	unsigned int pos;
+
+	while ( !found && matchesPositionCopy.size( ) > 0 )
+	{
+		pos = matchesPositionCopy.back( );
+		trace_msg( heuristic, 4, "Check path " << VariableNames::getName( matchesInput[ pos ].var ) );
+
+		if ( !matchesInput[ pos ].usedInLS && !matchesInput[ pos ].lockedBySolver )
+		{
+			possiblePartnerM = matchesInput[ pos ].man;
+			possiblePartnerW = matchesInput[ pos ].woman;
+			currentPartnerM = possiblePartnerW->currentPartner;
+			currentPartnerW = possiblePartnerM->currentPartner;
+
+			trace_msg( heuristic, 5, possiblePartnerM->name
+									 << " preference - current partner: " << possiblePartnerM->preferncesInput.find( currentPartnerW->name )->second
+									 << " preference - possible partner: " << possiblePartnerM->preferncesInput.find( possiblePartnerW->name )->second );
+			trace_msg( heuristic, 5, possiblePartnerW->name
+									 << " preference - current partner: " << possiblePartnerW->preferncesInput.find( currentPartnerM->name )->second
+									 << " preference - possible partner: " << possiblePartnerW->preferncesInput.find( possiblePartnerM->name )->second );
+
+			if( ( possiblePartnerM->preferncesInput.find( possiblePartnerW->name )->second >
+							possiblePartnerM->preferncesInput.find( currentPartnerW->name )->second ) &&
+				( possiblePartnerW->preferncesInput.find( possiblePartnerM->name )->second >
+							possiblePartnerW->preferncesInput.find( currentPartnerM->name )->second ) )
+			{
+				if ( !matches[ possiblePartnerM->id ][ currentPartnerW->id ]->lockedBySolver &&
+					 !matches[ currentPartnerM->id ][ possiblePartnerW->id ]->lockedBySolver )
+				{
+					*blockingPath = &matchesInput[ pos ];
+					trace_msg( heuristic, 5, "Blocking path found: " << VariableNames::getName( (*blockingPath)->var ) );
+					found = true;
+				}
+				else
+				{
+					trace_msg( heuristic, 5, "Blocking path found but current matches are locked" );
+				}
+			}
+		}
+		else
+		{
+			trace_msg( heuristic, 5, "Blocking path found is already used or locked" );
+		}
+
+		matchesPositionCopy.pop_back( );
+	}
+
+	trace_msg( heuristic, 3, "Blocking Path found: " << VariableNames::getName( (*blockingPath)->var ) );
+
+	if ( !found )
 		return false;
 	return true;
 }
@@ -832,6 +906,7 @@ StableMarriageHeuristic::getBestPathFromNeighbourhood(
 	Match** bestBlockingPath )
 {
 	vector< Match* > blockingPathsCurrent;
+	vector< Match* > blockingPathsSimulated;
 	vector< unsigned int > bpPosition;
     unsigned int bestBlockingPathValue = UINT_MAX;
     unsigned int bestBlockingPathScore = 0;
@@ -899,7 +974,7 @@ StableMarriageHeuristic::getBestPathFromNeighbourhood(
 			//----------------------------------------
 			toCheck.push_back( addedMatching1 );
 			toCheck.push_back( addedMatching2 );
-			nbp = getBlockingPathsSampling( toCheck );
+			nbp = getBlockingPathsSampling( toCheck, &blockingPathsSimulated );
 			//----------------------------------------
 
 			trace_msg( heuristic, 3, "Reset matching changes" );
@@ -995,7 +1070,9 @@ StableMarriageHeuristic::getRandomBlockingPath(
 
 bool
 StableMarriageHeuristic::simulatedAnnealingStep(
-	Match** randomBlockingPath )
+	Match** randomBlockingPath,
+	bool sampling,
+	bool useDiffInSampling )
 {
 	vector< Match* > blockingPathsCurrent;
 	vector< Match* > blockingPathsSimulated;
@@ -1003,78 +1080,198 @@ StableMarriageHeuristic::simulatedAnnealingStep(
 	Match* addedMatching2;
 	Match* removedMatching1;
 	Match* removedMatching2;
+	vector< Match* > toCheck;
+	unsigned int nbpC = UINT_MAX;
+	unsigned int nbpS = UINT_MAX;
+	float randVal;
 
-	trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
-
-	if ( !getBlockingPaths( &blockingPathsCurrent, true ) )
+	if ( sampling )
 	{
-		trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
-		steps = maxSteps + 1;
+		trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
+
+		if ( !getBlockingPathRandom( randomBlockingPath ) )
+		{
+			trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
+			steps = maxSteps + 1;
+			return false;
+		}
+
+		trace_msg( heuristic, 2, "Calculate blocking paths " << VariableNames::getName( (*randomBlockingPath)->var ) << "..." );
+
+		addedMatching1 = *randomBlockingPath;
+		removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
+		removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
+		addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
+
+		toCheck.push_back( addedMatching1 );
+		toCheck.push_back( addedMatching2 );
+		nbpC = getBlockingPathsSampling( toCheck, &blockingPathsCurrent );
+
+		trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( (*randomBlockingPath)->var ) << "..." );
+
+		trace_msg( heuristic, 3, "Add " << VariableNames::getName( addedMatching1->var )
+										<< " and " << VariableNames::getName( addedMatching2->var )
+										<< ", remove " << VariableNames::getName( removedMatching1->var )
+										<< " and " << VariableNames::getName( removedMatching2->var ) );
+
+		addedMatching1->usedInLS = true;
+		addedMatching2->usedInLS = true;
+		removedMatching1->usedInLS = false;
+		removedMatching2->usedInLS = false;
+
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		addedMatching1->man->currentPartner = addedMatching1->woman;
+		addedMatching1->woman->currentPartner = addedMatching1->man;
+
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		removedMatching2->man->currentPartner = removedMatching1->woman;
+		removedMatching1->woman->currentPartner = removedMatching2->man;
+
+		nbpS = getBlockingPathsSampling( toCheck, &blockingPathsSimulated );
+
+		trace_msg( heuristic, 3, "Reset matching changes" );
+
+		addedMatching1->usedInLS = false;
+		addedMatching2->usedInLS = false;
+		removedMatching1->usedInLS = true;
+		removedMatching2->usedInLS = true;
+
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		addedMatching1->man->currentPartner = removedMatching1->woman;
+		removedMatching1->woman->currentPartner = addedMatching1->man;
+
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		removedMatching2->man->currentPartner = addedMatching1->woman;
+		addedMatching1->woman->currentPartner = removedMatching2->man;
+
+		randVal = (float)rand()/(float)(RAND_MAX);
+
+		if ( useDiffInSampling )
+		{
+			int diff = getBlockingPathDifference( blockingPathsCurrent, blockingPathsSimulated );
+			trace_msg( heuristic, 3, "Removing " << VariableNames::getName( (*randomBlockingPath)->var ) << " leads to difference " << diff );
+			trace_msg( heuristic, 3, "Boltz: " << exp( ( (double)nbpS - nbpC ) / temperature ) << ", rand: " << randVal );
+
+			if ( diff <= 0 || randVal < exp( diff / temperature ) )
+			{
+				trace_msg( heuristic, 3, "Replace current marriage" );
+				return true;
+			}
+			return false;
+		}
+		else
+		{
+			trace_msg( heuristic, 3, "Removing " << VariableNames::getName( (*randomBlockingPath)->var ) << " leads to " << nbpS << " blocking paths" );
+			trace_msg( heuristic, 3, "NPBs: " << nbpS << ", NPBc: " << nbpC << ", Boltz: " << exp( ( (double)nbpS - nbpC ) / temperature ) << ", rand: " << randVal );
+
+			if ( nbpS <= nbpC || randVal < exp( ( (double)nbpS - nbpC ) / temperature ) )
+			{
+				trace_msg( heuristic, 3, "Replace current marriage" );
+				return true;
+			}
+			return false;
+		}
+	}
+	else
+	{
+		trace_msg( heuristic, 2, "Get blocking paths for current assignment..." );
+
+		if ( !getBlockingPaths( &blockingPathsCurrent, true ) )
+		{
+			trace_msg( heuristic, 2, "No blocking paths - stable marriage found" );
+			steps = maxSteps + 1;
+			return false;
+		}
+
+		trace_msg( heuristic, 2, "There are " << blockingPathsCurrent.size( ) << " blocking paths." );
+
+		int random = rand() % blockingPathsCurrent.size( );
+		*randomBlockingPath = blockingPathsCurrent[ random ];
+
+		trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( (*randomBlockingPath)->var ) << "..." );
+
+		addedMatching1 = *randomBlockingPath;
+		removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
+		removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
+		addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
+
+		trace_msg( heuristic, 3, "Add " << VariableNames::getName( addedMatching1->var )
+										<< " and " << VariableNames::getName( addedMatching2->var )
+										<< ", remove " << VariableNames::getName( removedMatching1->var )
+										<< " and " << VariableNames::getName( removedMatching2->var ) );
+
+		addedMatching1->usedInLS = true;
+		addedMatching2->usedInLS = true;
+		removedMatching1->usedInLS = false;
+		removedMatching2->usedInLS = false;
+
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		addedMatching1->man->currentPartner = addedMatching1->woman;
+		addedMatching1->woman->currentPartner = addedMatching1->man;
+
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		removedMatching2->man->currentPartner = removedMatching1->woman;
+		removedMatching1->woman->currentPartner = removedMatching2->man;
+
+		getBlockingPaths( &blockingPathsSimulated, true );
+
+		trace_msg( heuristic, 3, "Reset matching changes" );
+
+		addedMatching1->usedInLS = false;
+		addedMatching2->usedInLS = false;
+		removedMatching1->usedInLS = true;
+		removedMatching2->usedInLS = true;
+
+		trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
+		addedMatching1->man->currentPartner = removedMatching1->woman;
+		removedMatching1->woman->currentPartner = addedMatching1->man;
+
+		trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
+		removedMatching2->man->currentPartner = addedMatching1->woman;
+		addedMatching1->woman->currentPartner = removedMatching2->man;
+
+		trace_msg( heuristic, 3, "Removing " << VariableNames::getName( (*randomBlockingPath)->var ) << " leads to " << blockingPathsSimulated.size( ) << " blocking paths" );
+
+		trace_msg( heuristic, 3, "The difference is " << (blockingPathsCurrent.size( ) - blockingPathsSimulated.size( )) << " and the boltzman condition is " <<
+				exp( ( blockingPathsSimulated.size( ) - blockingPathsCurrent.size( ) ) / temperature ) );
+
+		if ( blockingPathsSimulated.size( ) <= blockingPathsCurrent.size( ) ||
+				( ((float)rand()/(float)(RAND_MAX)) * 1 ) < exp( ( (double)blockingPathsSimulated.size( ) - blockingPathsCurrent.size( ) ) / temperature ) )
+		{
+			trace_msg( heuristic, 3, "Replace current marriage" );
+			return true;
+		}
 		return false;
 	}
+}
 
-	trace_msg( heuristic, 2, "There are " << blockingPathsCurrent.size( ) << " blocking paths." );
+int
+StableMarriageHeuristic::getBlockingPathDifference(
+	vector< Match* > oldMatches,
+	vector< Match* > newMatches )
+{
+	int diff = 0;
 
-	int random = rand() % blockingPathsCurrent.size( );
-	*randomBlockingPath = blockingPathsCurrent[ random ];
-
-	trace_msg( heuristic, 2, "Simulate removing blocking path " << VariableNames::getName( (*randomBlockingPath)->var ) << "..." );
-
-	addedMatching1 = *randomBlockingPath;
-	removedMatching1 = matches[ addedMatching1->man->id ][ addedMatching1->man->currentPartner->id ];
-	removedMatching2 = matches[ addedMatching1->woman->currentPartner->id ][ addedMatching1->woman->id ];
-	addedMatching2 = matches[ removedMatching2->man->id ][ removedMatching1->woman->id ];
-
-	trace_msg( heuristic, 3, "Add " << VariableNames::getName( addedMatching1->var )
-									<< " and " << VariableNames::getName( addedMatching2->var )
-									<< ", remove " << VariableNames::getName( removedMatching1->var )
-									<< " and " << VariableNames::getName( removedMatching2->var ) );
-
-	addedMatching1->usedInLS = true;
-	addedMatching2->usedInLS = true;
-	removedMatching1->usedInLS = false;
-	removedMatching2->usedInLS = false;
-
-	trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << addedMatching1->woman->name << " as partner" );
-	addedMatching1->man->currentPartner = addedMatching1->woman;
-	addedMatching1->woman->currentPartner = addedMatching1->man;
-
-	trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
-	removedMatching2->man->currentPartner = removedMatching1->woman;
-	removedMatching1->woman->currentPartner = removedMatching2->man;
-
-	getBlockingPaths( &blockingPathsSimulated, true );
-
-	trace_msg( heuristic, 3, "Reset matching changes" );
-
-	addedMatching1->usedInLS = false;
-	addedMatching2->usedInLS = false;
-	removedMatching1->usedInLS = true;
-	removedMatching2->usedInLS = true;
-
-	trace_msg( heuristic, 5, "Set " << addedMatching1->man->name << " and " << removedMatching1->woman->name << " as partner" );
-	addedMatching1->man->currentPartner = removedMatching1->woman;
-	removedMatching1->woman->currentPartner = addedMatching1->man;
-
-	trace_msg( heuristic, 5, "Set " << removedMatching2->man->name << " and " << addedMatching1->woman->name << " as partner" );
-	removedMatching2->man->currentPartner = addedMatching1->woman;
-	addedMatching1->woman->currentPartner = removedMatching2->man;
-
-	trace_msg( heuristic, 3, "Removing " << VariableNames::getName( (*randomBlockingPath)->var ) << " leads to " << blockingPathsSimulated.size( ) << " blocking paths" );
-
-	trace_msg( heuristic, 3, "The difference is " << (blockingPathsCurrent.size( ) - blockingPathsSimulated.size( )) << " and the boltzman condition is " <<
-			exp( ( blockingPathsSimulated.size( ) - blockingPathsCurrent.size( ) ) / temperature ) );
-
-//	cout << "bpsim: " << blockingPathsSimulated.size() << "; bpcurr: " << blockingPathsCurrent.size() << ", temp: " << temperature <<
-//			", boltz: " << exp( ( (double)blockingPathsCurrent.size( ) - blockingPathsSimulated.size( ) ) / temperature ) << endl;
-
-	if ( blockingPathsSimulated.size( ) <= blockingPathsCurrent.size( ) ||
-			( ((float)rand()/(float)(RAND_MAX)) * 1 ) < exp( ( (double)blockingPathsCurrent.size( ) - blockingPathsSimulated.size( ) ) / temperature ) )
+	for ( unsigned int i = 0; i < newMatches.size( ); i++ )
 	{
-		trace_msg( heuristic, 3, "Replace current marriage" );
-		return true;
+		if ( std::find( oldMatches.begin( ), oldMatches.end( ), newMatches[ i ] ) == oldMatches.end( ) )
+			diff++;
 	}
-	return false;
+
+	for ( unsigned int i = 0; i < oldMatches.size( ); i++ )
+	{
+		if ( std::find( newMatches.begin( ), newMatches.end( ), oldMatches[ i ] ) == newMatches.end( ) )
+			diff--;
+	}
+
+	for ( unsigned int i = 0; i < newMatches.size(); i++ )
+		cout << "nm " << i << ": " << VariableNames::getName( newMatches[ i ]->var ) << endl;
+	for ( unsigned int i = 0; i < oldMatches.size(); i++ )
+		cout << "om " << i << ": " << VariableNames::getName( oldMatches[ i ]->var ) << endl;
+
+	cout << "diff " << diff << endl;
+
+	return diff;
 }
 
 /*
@@ -1089,6 +1286,9 @@ StableMarriageHeuristic::removeBlockingPath(
 	Match* addedMatching2;
 	Match* removedMatching1;
 	Match* removedMatching2;
+
+//	std::chrono::time_point<std::chrono::system_clock> saStart, saEnd;
+//	saStart = std::chrono::system_clock::now();
 
 	trace_msg( heuristic, 2, "Remove blocking path " << VariableNames::getName( blockingPath->var ) << "..." );
 
@@ -1114,6 +1314,10 @@ StableMarriageHeuristic::removeBlockingPath(
 	trace_msg( heuristic, 4, "Set " << removedMatching2->man->name << " and " << removedMatching1->woman->name << " as partner" );
 	removedMatching2->man->currentPartner = removedMatching1->woman;
 	removedMatching1->woman->currentPartner = removedMatching2->man;
+
+//	saEnd = std::chrono::system_clock::now();
+//	std::chrono::duration<double> saTime = saEnd-saStart;
+//	cout << "\t\t...(removing the path takes " << saTime.count( ) << " seconds)" << endl;
 }
 
 /*
