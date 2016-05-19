@@ -39,13 +39,15 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	unsigned int samplingTimeoutDefault,
 	bool useSimulatedAnnealing ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ),
 							 timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
-	                         size( 0 ), inputCorrect( true ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
+	                         size( 0 ), inputCorrect( true ), noMoveCount( 0 ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
 							 simAnnealing( useSimulatedAnnealing )
 {
 	minisat = new MinisatHeuristic( s );
 	srand(time(NULL));
+	start = std::chrono::system_clock::now();
+	heuristic_time = start-start;
 
-	temperature = 1;
+	temperature = 100;
 }
 
 /*
@@ -86,6 +88,8 @@ StableMarriageHeuristic::processVariable (
 				p.var = v;
 				p.name = tmp;
 				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
+				p.matched = false;
+				p.lastConsidered = -1;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				men.push_back( p );
@@ -110,6 +114,8 @@ StableMarriageHeuristic::processVariable (
 				p.var = v;
 				p.name = tmp;
 				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
+				p.matched = false;
+				p.lastConsidered = -1;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				women.push_back( p );
@@ -186,11 +192,20 @@ compareMatchesASC(
 	return false;
 };
 
+bool
+comparePairDESC(
+	pair< StableMarriageHeuristic::Person*, int> p1,
+	pair< StableMarriageHeuristic::Person*, int> p2 )
+{
+	return p1.second > p2.second;
+}
+
 void
 StableMarriageHeuristic::initData(
 	)
 {
 	bool found = false;
+	start_init = std::chrono::system_clock::now();
 
 	size = men.size( );
 
@@ -231,6 +246,26 @@ StableMarriageHeuristic::initData(
 
 		matches.push_back( m );
 	}
+
+	//-------------------------------------------------------
+	// gale-shapley
+
+	if ( maxSteps == 0 )
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			for ( unsigned int j = 0; j < size; j++ )
+			{
+				men[ i ].gs_preference.push_back( pair< Person*, int >( &women[ j ], men[ i ].preferncesInput.find( women[ j ].name )->second ) );
+				women[ i ].gs_preference.push_back( pair< Person*, int >( &men[ j ], women[ i ].preferncesInput.find( men[ j ].name )->second ) );
+			}
+
+			sort( men[ i ].gs_preference.begin( ), men[ i ].gs_preference.end( ), comparePairDESC );
+			sort( women[ i ].gs_preference.begin( ), women[ i ].gs_preference.end( ), comparePairDESC );
+		}
+	}
+
+	end_init = std::chrono::system_clock::now();
 }
 
 /*
@@ -240,108 +275,120 @@ Literal
 StableMarriageHeuristic::makeAChoiceProtected(
 	)
 {
-	if ( !runLocalSearch && !sendToSolver )
-	{
-		end = std::chrono::system_clock::now();
-		std::chrono::duration<double> elapsed_seconds = end-start;
+	start_heuristic = std::chrono::system_clock::now();
 
-		if ( elapsed_seconds.count( ) > timeout )
+	if ( maxSteps != 0 )
+	{
+		if ( !runLocalSearch && !sendToSolver )
 		{
-			trace_msg( heuristic, 1, "Run local search..." );
-			runLocalSearch = true;
-			steps = 0;
+			end = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end-start;
+
+			if ( elapsed_seconds.count( ) > timeout )
+			{
+				trace_msg( heuristic, 1, "Run local search..." );
+				runLocalSearch = true;
+				steps = 0;
+			}
 		}
-	}
 
-	if ( runLocalSearch )
-	{
-		marriageFound = false;
-
-		Match* chosenBlockingPath = 0;
-		bool blockingPathsRemaining = true;
-
-		createFullAssignment( );
-
-		do
+		if ( runLocalSearch )
 		{
-			trace_msg( heuristic, 2, "Starting step " << steps << "..." );
+			marriageFound = false;
 
-			if ( !simAnnealing )
+			Match* chosenBlockingPath = 0;
+			bool blockingPathsRemaining = true;
+
+			createFullAssignment( );
+
+			do
 			{
-				if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
-				{
-					trace_msg( heuristic, 2, "Random step..." );
+				trace_msg( heuristic, 2, "Starting step " << steps << "..." );
 
-					blockingPathsRemaining = getRandomBlockingPath( &chosenBlockingPath );
+				if ( !simAnnealing )
+				{
+					if ( ( ((float)rand()/(float)(RAND_MAX)) * 1 ) < randWalkProb )
+					{
+						trace_msg( heuristic, 2, "Random step..." );
+
+						blockingPathsRemaining = getRandomBlockingPath( &chosenBlockingPath );
+					}
+					else
+					{
+						trace_msg( heuristic, 2, "Heuristic step..." );
+
+						blockingPathsRemaining = getBestPathFromNeighbourhood( &chosenBlockingPath );
+					}
+
+					if ( blockingPathsRemaining )
+					{
+						removeBlockingPath( chosenBlockingPath );
+					}
+					else
+					{
+						marriageFound = true;
+						trace_msg( heuristic, 2, "No more blocking paths found..." );
+					}
 				}
 				else
 				{
-					trace_msg( heuristic, 2, "Heuristic step..." );
+					trace_msg( heuristic, 2, "Heuristic step (simulated annealing; temp: " << temperature << ")..." );
 
-					blockingPathsRemaining = getBestPathFromNeighbourhood( &chosenBlockingPath );
+					if ( simulatedAnnealingStep( &chosenBlockingPath, true, true ) )
+						removeBlockingPath( chosenBlockingPath );
+
+					temperature -= 1;
+					if ( temperature <= 1 || noMoveCount > 5 )
+						steps = maxSteps + 1;
 				}
 
-				if ( blockingPathsRemaining )
+				steps++;
+				stepCount++;
+
+	#ifdef TRACE_ON
+				string out = "";
+				for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
 				{
-					removeBlockingPath( chosenBlockingPath );
+					if ( matchesInput[ i ].usedInLS )
+						out += VariableNames::getName( matchesInput[ i ].var ) + ", ";
 				}
-				else
-				{
-					marriageFound = true;
-					trace_msg( heuristic, 2, "No more blocking paths found..." );
-				}
-			}
-			else
-			{
-				trace_msg( heuristic, 2, "Heuristic step (simulated annealing; temp: " << temperature << ")..." );
+				trace_msg( heuristic, 2, "Current assignment: " << out );
 
-				if ( simulatedAnnealingStep( &chosenBlockingPath, true, true ) )
-					removeBlockingPath( chosenBlockingPath );
+				trace_msg( heuristic, 5, "Partner (men)" );
+				for ( unsigned int i = 0; i < men.size( ); i++ )
+					trace_msg( heuristic, 5, men[ i ].name << " is partner of " << men[ i ].currentPartner->name );
 
-				temperature= temperature * 0.9;
-				if ( temperature < 0.00001 )
-					steps = maxSteps + 1;
-			}
+				trace_msg( heuristic, 5, "Partner (women)" );
+				for ( unsigned int i = 0; i < women.size( ); i++ )
+					trace_msg( heuristic, 5, women[ i ].name << " is partner of " << women[ i ].currentPartner->name );
+	#endif
 
-			steps++;
-			stepCount++;
+			} while ( blockingPathsRemaining && steps <= maxSteps );
 
-#ifdef TRACE_ON
-			string out = "";
+			heuCount++;
+
+			trace_msg( heuristic, 2, "Prepare assignment to send to solver..." );
+			matchesInMarriage.clear( );
 			for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
 			{
 				if ( matchesInput[ i ].usedInLS )
-					out += VariableNames::getName( matchesInput[ i ].var ) + ", ";
+					matchesInMarriage.push_back( &matchesInput[ i ] );
 			}
-			trace_msg( heuristic, 2, "Current assignment: " << out );
 
-			trace_msg( heuristic, 5, "Partner (men)" );
-			for ( unsigned int i = 0; i < men.size( ); i++ )
-				trace_msg( heuristic, 5, men[ i ].name << " is partner of " << men[ i ].currentPartner->name );
-
-			trace_msg( heuristic, 5, "Partner (women)" );
-			for ( unsigned int i = 0; i < women.size( ); i++ )
-				trace_msg( heuristic, 5, women[ i ].name << " is partner of " << women[ i ].currentPartner->name );
-#endif
-
-		} while ( blockingPathsRemaining && steps <= maxSteps );
-
-		heuCount++;
-
-		trace_msg( heuristic, 2, "Prepare assignment to send to solver..." );
-		for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
-		{
-			if ( matchesInput[ i ].usedInLS )
-				matchesInMarriage.push_back( &matchesInput[ i ] );
+			index = 0;
+			runLocalSearch = false;
+			sendToSolver = true;
+			start = std::chrono::system_clock::now();
+			trace_msg( heuristic, 1, "Fallback..." );
 		}
-
-		index = 0;
-		runLocalSearch = false;
-		sendToSolver = true;
-		start = std::chrono::system_clock::now();
-		trace_msg( heuristic, 1, "Fallback..." );
 	}
+	else
+	{
+		if ( !sendToSolver )
+			galeShapley( );
 
+		sendToSolver = true;
+	}
 
 	if ( sendToSolver )
 	{
@@ -358,6 +405,9 @@ StableMarriageHeuristic::makeAChoiceProtected(
 
 		sendToSolver = false;
 	}
+
+	end_heuristic = std::chrono::system_clock::now();
+	heuristic_time += end_heuristic-start_heuristic;
 
 	return minisat->makeAChoice( );
 }
@@ -1154,9 +1204,11 @@ StableMarriageHeuristic::simulatedAnnealingStep(
 
 			if ( diff <= 0 || randVal < exp( diff / temperature ) )
 			{
+				noMoveCount = 0;
 				trace_msg( heuristic, 3, "Replace current marriage" );
 				return true;
 			}
+			noMoveCount++;
 			return false;
 		}
 		else
@@ -1166,9 +1218,11 @@ StableMarriageHeuristic::simulatedAnnealingStep(
 
 			if ( nbpS <= nbpC || randVal < exp( ( (double)nbpS - nbpC ) / temperature ) )
 			{
+				noMoveCount = 0;
 				trace_msg( heuristic, 3, "Replace current marriage" );
 				return true;
 			}
+			noMoveCount++;
 			return false;
 		}
 	}
@@ -1264,13 +1318,6 @@ StableMarriageHeuristic::getBlockingPathDifference(
 			diff--;
 	}
 
-	for ( unsigned int i = 0; i < newMatches.size(); i++ )
-		cout << "nm " << i << ": " << VariableNames::getName( newMatches[ i ]->var ) << endl;
-	for ( unsigned int i = 0; i < oldMatches.size(); i++ )
-		cout << "om " << i << ": " << VariableNames::getName( oldMatches[ i ]->var ) << endl;
-
-	cout << "diff " << diff << endl;
-
 	return diff;
 }
 
@@ -1340,4 +1387,77 @@ StableMarriageHeuristic::checkInput(
 	if ( men.size( ) > 0 && women.size( ) > 0 )
 		return true;
 	return false;
+}
+
+void
+StableMarriageHeuristic::onFinishedSolving(
+	bool fromSolver )
+{
+	cout << stepCount << " steps in " << heuCount << " heuristic calls" << endl;
+	std::chrono::duration<double> elapsed_seconds = end_init-start_init;
+	cout << elapsed_seconds.count( ) << " seconds needed for initialization" << endl;
+	cout << heuristic_time.count( ) << " seconds needed for all heuristics calls (" << ( heuristic_time.count( ) / heuCount ) << " on average)" << endl;
+	minisat->onFinishedSolving( fromSolver );
+}
+
+void
+StableMarriageHeuristic::galeShapley(
+	)
+{
+	bool unmachted_found = false;
+
+	do
+	{
+		unmachted_found = false;
+		trace_msg( heuristic, 2, "Start iteration (gale-shapley)" );
+
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			trace_msg( heuristic, 3, "Consider man " << men[ i ].name );
+			trace_msg( heuristic, 4, "He is " << ( men[ i ].matched == true ? "matched": "unmachted" ) << " and "
+					<< ( men[ i ].lastConsidered < (int)size ? "has" : "has no more" ) << " prefernces to consider" );
+
+			if ( !men[ i ].matched && men[ i ].lastConsidered < (int)size )
+			{
+				unmachted_found = true;
+				Person* possiblePartner = men[ i ].gs_preference[ ++men[ i ].lastConsidered ].first;
+				trace_msg( heuristic, 4, "Consider woman " << possiblePartner->name );
+				trace_msg( heuristic, 5, "She is " << ( possiblePartner->matched == true ? "matched": "unmachted" ) );
+#ifdef TRACE_ON
+				if( possiblePartner->matched )
+				{
+					trace_msg( heuristic, 5, "Current matching " << possiblePartner->currentPartner->name << "("
+							<< to_string(possiblePartner->preferncesInput.find( possiblePartner->currentPartner->name )->second ) << "); " << "new preference would be"
+							<< to_string(possiblePartner->preferncesInput.find( men[ i ].name )->second) );
+				}
+#endif
+
+				if ( !possiblePartner->matched ||
+						possiblePartner->preferncesInput.find( possiblePartner->currentPartner->name )->second <
+						possiblePartner->preferncesInput.find( men[ i ].name )->second )
+				{
+					if ( possiblePartner->matched )
+					{
+						trace_msg( heuristic, 5, "Free old partner" );
+						possiblePartner->currentPartner->matched = false;
+						possiblePartner->currentPartner->currentPartner = 0;
+					}
+
+					trace_msg( heuristic, 5, "Set new partner" );
+					possiblePartner->currentPartner = &men[ i ];
+					men[ i ].currentPartner = possiblePartner;
+
+					possiblePartner->matched = true;
+					men[ i ].matched = true;
+				}
+			}
+		}
+
+	} while ( unmachted_found );
+
+	matchesInMarriage.clear( );
+	for ( unsigned int i = 0; i < size; i++ )
+	{
+		matchesInMarriage.push_back( matches[ men[ i ].id ][ men[ i ].currentPartner->id ] );
+	}
 }

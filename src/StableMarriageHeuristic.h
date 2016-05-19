@@ -38,7 +38,7 @@ class StableMarriageHeuristic : public Heuristic
         void conflictOccurred( );
         void onFinishedParsing( );
         unsigned int getTreshold( ) { return minisat->getTreshold( ); }
-        void onFinishedSolving( bool fromSolver ) { cout << stepCount << " steps in " << heuCount << " heuristic calls" << endl; minisat->onFinishedSolving( fromSolver ); };
+        void onFinishedSolving( bool fromSolver );
         bool isInputCorrect( ){ return inputCorrect; }
         bool isCoherent( ){ return true; }
         void reset( ) { minisat->reset( ); }
@@ -56,6 +56,11 @@ class StableMarriageHeuristic : public Heuristic
         	map< string, int > preferncesInput;
 
         	Person* currentPartner;
+
+        	// for gale-shapley
+        	bool matched;
+        	vector< pair< Person*, int > > gs_preference;
+        	int lastConsidered;
 		};
 
         struct Match
@@ -81,6 +86,8 @@ class StableMarriageHeuristic : public Heuristic
         vector< unsigned int > matchesPosition;
 
         std::chrono::time_point<std::chrono::system_clock> start, starttime, end;
+        std::chrono::time_point<std::chrono::system_clock> start_heuristic, end_heuristic, start_init, end_init;
+        std::chrono::duration<double> heuristic_time = end-start;
 
         Heuristic* minisat;
 
@@ -93,6 +100,7 @@ class StableMarriageHeuristic : public Heuristic
         unsigned int samplingTimeout;
         unsigned int size;
         bool inputCorrect;
+        int noMoveCount;
 
         unsigned int index;
         bool runLocalSearch;
@@ -120,6 +128,8 @@ class StableMarriageHeuristic : public Heuristic
         int getBlockingPathDifference( vector< Match* > oldMatches, vector< Match* > newMatches );
 
         bool simulatedAnnealingStep( Match** bestBockingPath, bool sampling, bool useDiffInSampling );
+
+        void galeShapley( );
 };
 
 #endif
