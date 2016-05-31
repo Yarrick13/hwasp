@@ -37,10 +37,10 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	unsigned int maxSteps,
 	unsigned int timeoutDefault,
 	unsigned int samplingTimeoutDefault,
-	bool useSimulatedAnnealing ) : Heuristic( s ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ),
+	bool useSimulatedAnnealing ) : Heuristic( s ), augmentedPathFound( false ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ),
 							 timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
 	                         size( 0 ), inputCorrect( true ), noMoveCount( 0 ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
-							 simAnnealing( useSimulatedAnnealing )
+							 simAnnealing( useSimulatedAnnealing ), fallbackCount( 0 ), callMinisatCount( 0 ), nmCount( 0 ), gs_finished( false )
 {
 	minisat = new MinisatHeuristic( s );
 	srand(time(NULL));
@@ -90,6 +90,8 @@ StableMarriageHeuristic::processVariable (
 				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
 				p.matched = false;
 				p.lastConsidered = -1;
+				p.male = true;
+				p.considered = false;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				men.push_back( p );
@@ -116,6 +118,8 @@ StableMarriageHeuristic::processVariable (
 				p.id = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
 				p.matched = false;
 				p.lastConsidered = -1;
+				p.male = false;
+				p.considered = false;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				women.push_back( p );
@@ -127,8 +131,13 @@ StableMarriageHeuristic::processVariable (
 
 			Match m;
 			m.var = v;
-			m.manId = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;;
-			m.womanId = strtoul( tmp2.substr(1).c_str(), NULL, 0 ) - 1;;
+			m.manId = strtoul( tmp.substr(1).c_str(), NULL, 0 ) - 1;
+			m.womanId = strtoul( tmp2.substr(1).c_str(), NULL, 0 ) - 1;
+
+			m.inEC = false;
+			m.inEPrime = true;
+			m.inMatching = false;
+			m.level = -1;
 
 			matchesInput.push_back( m );
 		}
@@ -200,6 +209,14 @@ comparePairDESC(
 	return p1.second > p2.second;
 }
 
+bool
+comparePairASC(
+	pair< StableMarriageHeuristic::Person*, int> p1,
+	pair< StableMarriageHeuristic::Person*, int> p2 )
+{
+	return p1.second < p2.second;
+}
+
 void
 StableMarriageHeuristic::initData(
 	)
@@ -263,6 +280,21 @@ StableMarriageHeuristic::initData(
 			sort( men[ i ].gs_preference.begin( ), men[ i ].gs_preference.end( ), comparePairDESC );
 			sort( women[ i ].gs_preference.begin( ), women[ i ].gs_preference.end( ), comparePairDESC );
 		}
+	}
+
+	//-------------------------------------------------------
+	// strong stable marriage
+
+	for ( unsigned int i = 0; i < size; i++ )
+	{
+		for ( unsigned int j = 0; j < size; j++ )
+		{
+			men[ i ].strong_preferences.push_back( pair< Person*, int >( &women[ j ], men[ i ].preferncesInput.find( women[ j ].name )->second ) );
+			women[ i ].strong_preferences.push_back( pair< Person*, int >( &men[ j ], women[ i ].preferncesInput.find( men[ j ].name )->second ) );
+		}
+
+		sort( men[ i ].strong_preferences.begin( ), men[ i ].strong_preferences.end( ), comparePairASC );
+		sort( women[ i ].strong_preferences.begin( ), women[ i ].strong_preferences.end( ), comparePairDESC );
 	}
 
 	end_init = std::chrono::system_clock::now();
@@ -340,6 +372,9 @@ StableMarriageHeuristic::makeAChoiceProtected(
 					temperature -= 1;
 					if ( temperature <= 1 || noMoveCount > 5 )
 						steps = maxSteps + 1;
+
+					if ( noMoveCount > 5 )
+						nmCount++;
 				}
 
 				steps++;
@@ -378,37 +413,62 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			index = 0;
 			runLocalSearch = false;
 			sendToSolver = true;
+			fallbackCount++;
 			start = std::chrono::system_clock::now();
 			trace_msg( heuristic, 1, "Fallback..." );
 		}
 	}
 	else
 	{
-		if ( !sendToSolver )
-			galeShapley( );
+		if ( !sendToSolver & !gs_finished )
+		{
+			std::chrono::time_point<std::chrono::system_clock> gs_start, gs_end;
+			gs_start = std::chrono::system_clock::now();
 
-		sendToSolver = true;
+			//galeShapley( );
+
+			//---------------------------
+			strongStableMarriage( );
+			matchesInMarriage.clear( );
+			for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
+			{
+				if ( matchesInput[ i ].inMatching )
+					matchesInMarriage.push_back( &matchesInput[ i ] );
+			}
+			//---------------------------
+
+			heuCount++;
+			sendToSolver = true;
+			gs_finished = true;
+			index = 0;
+
+			gs_end = std::chrono::system_clock::now();
+			std::chrono::duration<double> gs_time = gs_end-gs_start;
+			trace_msg( heuristic, 3, "[GS] Time: " << gs_time.count( ) << " seconds" );
+		}
 	}
 
 	if ( sendToSolver )
 	{
-		for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
+		//for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
+		while ( index < matchesInMarriage.size( ) )
 		{
 			if ( solver.getTruthValue( matchesInMarriage[ index ]->var ) == UNDEFINED )
 			{
-				trace_msg( heuristic, 3, "index " << index << " of size " << matchesInMarriage.size( ) );
-				trace_msg( heuristic, 3, "truth value: " << solver.getTruthValue( matchesInMarriage[ index ]->var ) );
 				trace_msg( heuristic, 3, "Send " << VariableNames::getName( matchesInMarriage[ index ]->var ) << " as " << (index+1) << "th" );
 				return Literal( matchesInMarriage[ index++ ]->var, POSITIVE );
 			}
+			index++;
 		}
-
 		sendToSolver = false;
 	}
 
 	end_heuristic = std::chrono::system_clock::now();
 	heuristic_time += end_heuristic-start_heuristic;
 
+	callMinisatCount++;
+
+	exit(0);
 	return minisat->makeAChoice( );
 }
 
@@ -1374,6 +1434,7 @@ void
 StableMarriageHeuristic::conflictOccurred(
 	)
 {
+	cout << "conf" << endl;
 	minisat->conflictOccurred( );
 }
 
@@ -1393,7 +1454,9 @@ void
 StableMarriageHeuristic::onFinishedSolving(
 	bool fromSolver )
 {
+	cout << "no move fallback: " << nmCount << endl;
 	cout << stepCount << " steps in " << heuCount << " heuristic calls" << endl;
+	cout << "Fallback: " << fallbackCount << ", Minisat calls: " << callMinisatCount << endl;
 	std::chrono::duration<double> elapsed_seconds = end_init-start_init;
 	cout << elapsed_seconds.count( ) << " seconds needed for initialization" << endl;
 	cout << heuristic_time.count( ) << " seconds needed for all heuristics calls (" << ( heuristic_time.count( ) / heuCount ) << " on average)" << endl;
@@ -1427,7 +1490,7 @@ StableMarriageHeuristic::galeShapley(
 				if( possiblePartner->matched )
 				{
 					trace_msg( heuristic, 5, "Current matching " << possiblePartner->currentPartner->name << "("
-							<< to_string(possiblePartner->preferncesInput.find( possiblePartner->currentPartner->name )->second ) << "); " << "new preference would be"
+							<< to_string(possiblePartner->preferncesInput.find( possiblePartner->currentPartner->name )->second ) << "); " << "new preference would be "
 							<< to_string(possiblePartner->preferncesInput.find( men[ i ].name )->second) );
 				}
 #endif
@@ -1453,11 +1516,558 @@ StableMarriageHeuristic::galeShapley(
 			}
 		}
 
+		stepCount++;
+
 	} while ( unmachted_found );
 
 	matchesInMarriage.clear( );
+	trace_msg( heuristic, 3, "[GS] marriage found: " );
 	for ( unsigned int i = 0; i < size; i++ )
 	{
 		matchesInMarriage.push_back( matches[ men[ i ].id ][ men[ i ].currentPartner->id ] );
+		trace_msg( heuristic, 4, i << ": " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].currentPartner->id ]->var ) );
 	}
 }
+
+void
+StableMarriageHeuristic::strongStableMarriage(
+	)
+{
+	int level = 1;
+	bool freePersons;
+	vector< Match* > topMachtings;
+	int topMatchingValue;
+	int proposalsMade;
+	bool found;
+
+//	for ( unsigned int i = 0; i < men.size( ); i++ )
+//	{
+//		trace_msg( heuristic, 1, "[DEBUG] "<< men[ i ].name );
+//		for ( unsigned int j = 0; j < men[ i ].strong_preferences.size( ); j++ )
+//			trace_msg( heuristic, 2, "[DEBUG] " << men[ i ].strong_preferences[ j ].first->name << ", " << men[ i ].strong_preferences[ j ].second );
+//	}
+//
+//	for ( unsigned int i = 0; i < women.size( ); i++ )
+//	{
+//		trace_msg( heuristic, 1, "[DEBUG] "<< women[ i ].name );
+//		for ( unsigned int j = 0; j < women[ i ].strong_preferences.size( ); j++ )
+//			trace_msg( heuristic, 2, "[DEBUG] " << women[ i ].strong_preferences[ j ].first->name << ", " << women[ i ].strong_preferences[ j ].second );;
+//	}
+//
+//	trace_msg( heuristic, 1, "[DEBUG] EPrime/EC/Matching" );
+//	for ( unsigned int i = 0; i < size; i++ )
+//	{
+//		for ( unsigned int j = 0; j < size; j++ )
+//		{
+//			if ( matches[ i ][ j ]->inEPrime )
+//				cout << "+/";
+//			else
+//				cout << "-/";
+//
+//			if ( matches[ i ][ j ]->inEC )
+//				cout << "+/";
+//			else
+//				cout << "-/";
+//
+//			if ( matches[ i ][ j ]->inMatching )
+//				cout << "+\t";
+//			else
+//				cout << "-\t";
+//		}
+//
+//		cout << endl;
+//	}
+
+	trace_msg( heuristic, 2, "[SM] Start looking for strong stable marriage" );
+	do
+	{
+		trace_msg( heuristic, 2, "[SM] Begin next iteration" );
+		trace_msg( heuristic, 2, "[SM] Phase one" );
+		freePersons = true;
+		proposalsMade = 0;
+
+		//-------------------------------------
+		// phase one (move edges from E' to Ec for men; remove strictly less prefered edges for women) - start
+
+		while ( freePersons )
+		{
+			freePersons = false;
+
+			for ( unsigned int i = 0; i < size; i++ )
+			{
+				trace_msg( heuristic, 3, "[SM] Check man "<< men[ i ].name );
+
+#ifdef TRACE_ON
+				if ( isFree( &men[ i ], false ) )
+					trace_msg( heuristic, 4, "[SM] is free" );
+				if ( men[ i ].strong_preferences.size( ) > 0 )
+					trace_msg( heuristic, 4, "[SM] has preferences" );
+#endif
+
+				// process men if he is free and has preferences
+				if ( isFree( &men[ i ],false ) && men[ i ].strong_preferences.size( ) > 0 )
+				{
+					freePersons = true;
+					topMachtings.clear( );
+					topMatchingValue = 0;
+
+					// find the first top preference (delete it and continue if edge already removed)
+					found = false;
+					do
+					{
+						if ( men[ i ].strong_preferences.size( ) > 0 )
+						{
+							if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime )
+							{
+								trace_msg( heuristic, 4, "[SM] best preferences has edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var )
+								                       << " with " << men[ i ].strong_preferences.back( ).second << "(move it)" );
+								topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->level = level;
+								topMatchingValue = men[ i ].strong_preferences.back( ).second;
+								men[ i ].strong_preferences.pop_back( );
+								found = true;
+								proposalsMade++;
+							}
+							else
+							{
+								trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " already removed -> remove from list" );
+								men[ i ].strong_preferences.pop_back( );
+							}
+						}
+					} while ( men[ i ].strong_preferences.size( ) > 0 && !found );
+
+					// get all other preferences with the same value as the one before and remove them
+					found = true;
+					while ( men[ i ].strong_preferences.size( ) > 0 && found )
+					{
+						if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime && men[ i ].strong_preferences.back( ).second == topMatchingValue )
+						{
+							trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " too" );
+							topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
+							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
+							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
+							men[ i ].strong_preferences.pop_back( );
+						}
+						else
+						{
+							found = false;
+						}
+					}
+
+#ifdef TRACE_ON
+					string out = "";
+					for ( unsigned int j = 0; j < topMachtings.size( ); j++)
+					{
+						out += VariableNames::getName( topMachtings[ j ]->var ) + ", ";
+					}
+					trace_msg( heuristic, 4, "[SM] Top matchings: " << out );
+#endif
+
+					for ( unsigned int j = 0; j < topMachtings.size( ); j++ )
+					{
+						Person* w = topMachtings[ j ]->woman;
+						topMatchingValue = w->preferncesInput.find( topMachtings[ j ]->man->name )->second;
+						found = true;
+
+						trace_msg( heuristic, 4, "[SM] Remove strictly less prefered edges (woman " << w->name << ", " << topMatchingValue << ")" );
+
+						while ( w->strong_preferences.size( ) > 0 && found )
+						{
+							if ( w->strong_preferences.back( ).second < topMatchingValue )
+							{
+								trace_msg( heuristic, 5, "[SM] Remove: " << VariableNames::getName( matches[ w->strong_preferences.back( ).first->id ][ w->id ]->var ) );
+								matches[ w->strong_preferences.back( ).first->id ][ w->id ]->inEC = false;
+								matches[ w->strong_preferences.back( ).first->id ][ w->id ]->inEPrime = false;
+								w->strong_preferences.pop_back( );
+							}
+							else
+							{
+								found = false;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// phase one - end
+		//-------------------------------------
+		// phase two - start
+
+		trace_msg( heuristic, 2, "[SM] Phase two" );
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			int currentLevel;
+			augmentedPathFound = false;
+			augmentedPath.clear( );
+
+			// consider only free man in the matching
+			trace_msg( heuristic, 3, "[SM] Consider man " << men[ i ].name );
+			if ( isFree( &men[ i ], true) )
+			{
+				currentLevel = getLevel( &men[ i ] );
+				trace_msg( heuristic, 3, "[SM] is free and has level " << currentLevel );
+
+				while ( currentLevel > 0 && !augmentedPathFound )
+				{
+					findAugmentedPath( &men[ i ], currentLevel );
+
+					currentLevel--;
+				}
+
+				// try to find an augmented path
+				if ( augmentedPathFound )
+				{
+#ifdef TRACE_ON
+					string path = "";
+					for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
+						path += VariableNames::getName( augmentedPath[ i ]->var ) + ", ";
+					trace_msg( heuristic, 3, "[SM] augmented path: " << path );
+#endif
+					for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
+						augmentedPath[ i ]->inMatching = true;
+				}
+				// if there is none: find women that adjecent to alternatively reachable men starting from the current men
+				else
+				{
+					alternatingReachableWomen.clear( );
+					findAlternatingReachableWomen( &men[ i ] );
+					int worstMatchingValue;
+
+					for ( unsigned int j = 0; j < alternatingReachableWomen.size( ); j++ )
+					{
+						// find the first bottom preference (delete it and continue if edge already removed)
+						found = false;
+						do
+						{
+							if ( women[ i ].strong_preferences.size( ) > 0 )
+							{
+								if ( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime ||
+										matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC )
+								{
+									trace_msg( heuristic, 4, "[SM] worst preferences has edge " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var )
+														   << " with " << women[ i ].strong_preferences.back( ).second << "(delete it)" );
+									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC = false;
+									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime = false;
+									worstMatchingValue = men[ i ].strong_preferences.back( ).second;
+									women[ i ].strong_preferences.pop_back( );
+									found = true;
+								}
+								else
+								{
+									trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var ) << " already removed -> remove from list" );
+									women[ i ].strong_preferences.pop_back( );
+								}
+							}
+						} while ( men[ i ].strong_preferences.size( ) > 0 && !found );
+
+						// get all other preferences with the same value as the one before and remove them
+						found = true;
+						while ( women[ i ].strong_preferences.size( ) > 0 && found )
+						{
+							if ( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime &&
+									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC &&
+									women[ i ].strong_preferences.back( ).second == worstMatchingValue )
+							{
+								trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var ) << " too" );
+								matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC = false;
+								matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime = false;
+								women[ i ].strong_preferences.pop_back( );
+							}
+							else
+							{
+								found = false;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// phase two - end
+		//-------------------------------------
+
+//		for ( unsigned int i = 0; i < men.size( ); i++ )
+//		{
+//			trace_msg( heuristic, 1, "[DEBUG] "<< men[ i ].name );
+//			for ( unsigned int j = 0; j < men[ i ].strong_preferences.size( ); j++ )
+//				trace_msg( heuristic, 2, "[DEBUG] " << men[ i ].strong_preferences[ j ].first->name << ", " << men[ i ].strong_preferences[ j ].second );
+//		}
+//
+//		for ( unsigned int i = 0; i < women.size( ); i++ )
+//		{
+//			trace_msg( heuristic, 1, "[DEBUG] "<< women[ i ].name );
+//			for ( unsigned int j = 0; j < women[ i ].strong_preferences.size( ); j++ )
+//				trace_msg( heuristic, 2, "[DEBUG] " << women[ i ].strong_preferences[ j ].first->name << ", " << women[ i ].strong_preferences[ j ].second );;
+//		}
+//
+//		trace_msg( heuristic, 1, "[DEBUG] EPrime/EC" );
+//		for ( unsigned int i = 0; i < size; i++ )
+//		{
+//			for ( unsigned int j = 0; j < size; j++ )
+//			{
+//				if ( matches[ i ][ j ]->inEPrime )
+//					cout << "+/";
+//				else
+//					cout << "-/";
+//
+//				if ( matches[ i ][ j ]->inEC )
+//					cout << "+/";
+//				else
+//					cout << "-/";
+//
+//				if ( matches[ i ][ j ]->inMatching )
+//					cout << "+\t";
+//				else
+//					cout << "-\t";
+//			}
+//
+//			cout << endl;
+//		}
+
+		level++;
+	} while ( proposalsMade > 0 );
+
+	trace_msg( heuristic, 2, "[SM] No one has made a proposal -> fallback" );
+}
+
+void
+StableMarriageHeuristic::findAugmentedPath(
+	StableMarriageHeuristic::Person* start,
+	int currentLevel )
+{
+	vector< Person* > augmentedPath;
+	vector< Person* > endpoints;
+	int path_index = 0;
+
+	if ( start->male )
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			men[ i ].considered = women[ i ].considered = false;
+			if ( getLevel( &women[ i ] ) == currentLevel )
+				endpoints.push_back( &women[ i ] );
+		}
+	}
+	else
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			men[ i ].considered = women[ i ].considered = false;
+			if ( getLevel( &men[ i ] ) == currentLevel )
+				endpoints.push_back( &men[ i ] );
+		}
+	}
+
+	for ( unsigned int i = 0; i < endpoints.size( ); i++ )
+	{
+		if ( !augmentedPathFound )
+			findAugmentedPath( start, endpoints[ i ], false, currentLevel, augmentedPath, path_index );
+	}
+}
+
+void
+StableMarriageHeuristic::findAugmentedPath(
+	Person* start,
+	Person* dest,
+	bool inMatching,
+	int currentLevel,
+	vector< Person* > path,
+	int &path_index )
+{
+	if ( !augmentedPathFound )
+	{
+		start->considered = true;
+		path.push_back( start );
+		path_index++;
+
+		if ( start == dest )
+		{
+			augmentedPathFound = true;
+
+			for ( int i = 0; i < path_index - 1; i++ )
+			{
+				if ( path[ i ]->male )
+					augmentedPath.push_back( matches[ path[ i ]->id ][ path[ i+1 ]->id ] );
+				else
+					augmentedPath.push_back( matches[ path[ i+1 ]->id ][ path[ i ]->id ] );
+			}
+		}
+		else
+		{
+			if ( start->male )
+			{
+				for ( unsigned int i = 0; i < size; i++ )
+				{
+					if ( matches[ start->id ][ i ]->inEC && !women[ i ].considered && getLevel( &women[ i ] ) >= currentLevel && matches[ start->id ][ i ]->inMatching == inMatching )
+						findAugmentedPath( &women[ i ], dest, !inMatching, currentLevel, path, path_index );
+				}
+			}
+			else
+			{
+				for ( unsigned int i = 0; i < size; i++ )
+				{
+					if ( matches[ i ][ start->id ]->inEC && !men[ i ].considered && getLevel( &men[ i ] ) >= currentLevel && matches[ i ][ start->id ]->inMatching == inMatching )
+						findAugmentedPath( &men[ i ], dest, !inMatching, currentLevel, path, path_index );
+				}
+			}
+		}
+
+		path_index--;
+		start->considered = false;
+	}
+}
+
+void
+StableMarriageHeuristic::findAlternatingReachableWomen(
+	Person* start )
+{
+	for ( unsigned int i = 0; i < size; i++ )
+	{
+		men[ i ].considered = women[ i ].considered = false;
+	}
+
+	findAlternatingReachableWomen( start, true );
+	findAlternatingReachableWomen( start, false );
+}
+
+void
+StableMarriageHeuristic::findAlternatingReachableWomen(
+	Person* start,
+	bool inMatching )
+{
+	start->considered = true;
+
+	if ( start->male )
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			if ( matches[ start->id ][ i ]->inEC )
+			{
+				if ( std::find( alternatingReachableWomen.begin( ), alternatingReachableWomen.end( ), &women[ i ] ) == alternatingReachableWomen.end( ) )
+					alternatingReachableWomen.push_back( &women[ i ] );
+			}
+		}
+	}
+	else
+	{
+		if ( start->male )
+		{
+			for ( unsigned int i = 0; i < size; i++ )
+			{
+				if ( matches[ start->id ][ i ]->inEC && matches[ start->id ][ i ]->inMatching == inMatching )
+					findAlternatingReachableWomen( &women[ i ], !inMatching );
+			}
+		}
+		else
+		{
+			for ( unsigned int i = 0; i < size; i++ )
+			{
+				if ( matches[ i ][ start->id ]->inEC && matches[ i ][ start->id ]->inMatching == inMatching )
+					findAlternatingReachableWomen( &men[ i ], !inMatching );
+			}
+		}
+	}
+
+	start->considered = false;
+}
+
+bool
+StableMarriageHeuristic::isFree(
+	Person* p,
+	bool inMatching )
+{
+	if ( p->male )
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			if ( !inMatching )
+			{
+				if ( matches[ p->id ][ i ]->inEC )
+					return false;
+			}
+			else
+			{
+				if ( matches[ p->id ][ i ]->inMatching )
+					return false;
+			}
+		}
+	}
+	else
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			if ( !inMatching )
+			{
+				if ( matches[ p->id ][ i ]->inEC )
+					return false;
+			}
+			else
+			{
+				if ( matches[ p->id ][ i ]->inMatching )
+					return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+int
+StableMarriageHeuristic::getLevel(
+	Person* p )
+{
+	int level = 0;
+
+	if ( p->male )
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			if ( matches[ p->id ][ i ]->inEC )
+				level++;
+		}
+	}
+	else
+	{
+		for ( unsigned int i = 0; i < size; i++ )
+		{
+			if ( matches[ i ][ p->id ]->inEC )
+				level++;
+		}
+	}
+
+	if ( level == 0 )
+		return -1;
+
+	return level;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

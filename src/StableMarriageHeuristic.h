@@ -61,6 +61,11 @@ class StableMarriageHeuristic : public Heuristic
         	bool matched;
         	vector< pair< Person*, int > > gs_preference;
         	int lastConsidered;
+
+        	// for strong stable marriage computation
+        	vector< pair< Person*, int > >strong_preferences;
+        	bool male;
+        	bool considered;
 		};
 
         struct Match
@@ -74,6 +79,12 @@ class StableMarriageHeuristic : public Heuristic
 
         	bool usedInLS;
         	bool lockedBySolver;
+
+        	// for strong stable marriages computation
+        	bool inEPrime;
+        	bool inEC;
+        	int level;
+        	bool inMatching;
         };
 
     private:
@@ -84,6 +95,11 @@ class StableMarriageHeuristic : public Heuristic
         vector< vector< Match* > > matches;
         vector< Match* > matchesInMarriage;
         vector< unsigned int > matchesPosition;
+
+        // augmented path
+        bool augmentedPathFound;
+        vector< Match* > augmentedPath;
+        vector< Person* > alternatingReachableWomen;
 
         std::chrono::time_point<std::chrono::system_clock> start, starttime, end;
         std::chrono::time_point<std::chrono::system_clock> start_heuristic, end_heuristic, start_init, end_init;
@@ -109,6 +125,10 @@ class StableMarriageHeuristic : public Heuristic
         bool startingGenderMale;
         bool simAnnealing;
         float temperature;
+        unsigned int fallbackCount;
+        unsigned int callMinisatCount;
+        unsigned int nmCount;
+        bool gs_finished;
 
         bool checkInput( );
         void processVariable( Var var );
@@ -130,6 +150,14 @@ class StableMarriageHeuristic : public Heuristic
         bool simulatedAnnealingStep( Match** bestBockingPath, bool sampling, bool useDiffInSampling );
 
         void galeShapley( );
+
+        void strongStableMarriage( );
+        bool isFree( Person* p, bool inMatching );
+        int getLevel( Person* p );
+        void findAugmentedPath( Person* start, int currentLevel );
+        void findAugmentedPath( Person* start, Person* dest, bool inMatching, int currentLevel, vector< Person* > path, int &path_index);
+        void findAlternatingReachableWomen( Person* start );
+        void findAlternatingReachableWomen( Person* start, bool inMatching );
 };
 
 #endif

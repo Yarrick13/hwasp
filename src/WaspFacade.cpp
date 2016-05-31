@@ -257,7 +257,7 @@ WaspFacade::setDecisionPolicy(
         	break;
 
         case HEURISTIC_STABLEMARRIAGE:
-        	solver.setHeuristic( new StableMarriageHeuristic( solver, 0.4, 500, 15, 5, true ) );
+        	solver.setHeuristic( new StableMarriageHeuristic( solver, 0.4, 0, 5, 5, true ) );
         	break;
 
         case HEURISTIC_CCP:
