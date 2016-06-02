@@ -1620,7 +1620,7 @@ StableMarriageHeuristic::strongStableMarriage(
 							if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime )
 							{
 								trace_msg( heuristic, 4, "[SM] best preferences has edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var )
-								                       << " with " << men[ i ].strong_preferences.back( ).second << "(move it)" );
+								                       << " with " << men[ i ].strong_preferences.back( ).second << " (move it)" );
 								topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
 								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
 								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
@@ -1642,13 +1642,23 @@ StableMarriageHeuristic::strongStableMarriage(
 					found = true;
 					while ( men[ i ].strong_preferences.size( ) > 0 && found )
 					{
-						if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime && men[ i ].strong_preferences.back( ).second == topMatchingValue )
+						if ( men[ i ].strong_preferences.back( ).second == topMatchingValue )
 						{
-							trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " too" );
-							topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
-							men[ i ].strong_preferences.pop_back( );
+							if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime )
+							{
+								trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var )
+																		   << " (" << men[ i ].strong_preferences.back( ).second <<  ") too" );
+								topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
+								matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->level = level;
+								men[ i ].strong_preferences.pop_back( );
+							}
+							else
+							{
+								trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " already removed -> remove from list" );
+								men[ i ].strong_preferences.pop_back( );
+							}
 						}
 						else
 						{
@@ -1677,7 +1687,8 @@ StableMarriageHeuristic::strongStableMarriage(
 						{
 							if ( w->strong_preferences.back( ).second < topMatchingValue )
 							{
-								trace_msg( heuristic, 5, "[SM] Remove: " << VariableNames::getName( matches[ w->strong_preferences.back( ).first->id ][ w->id ]->var ) );
+								trace_msg( heuristic, 5, "[SM] Remove: " << VariableNames::getName( matches[ w->strong_preferences.back( ).first->id ][ w->id ]->var )
+								                                         << " (" << w->strong_preferences.back( ).second << ")" );
 								matches[ w->strong_preferences.back( ).first->id ][ w->id ]->inEC = false;
 								matches[ w->strong_preferences.back( ).first->id ][ w->id ]->inEPrime = false;
 								w->strong_preferences.pop_back( );
@@ -1727,54 +1738,56 @@ StableMarriageHeuristic::strongStableMarriage(
 					trace_msg( heuristic, 3, "[SM] augmented path: " << path );
 #endif
 					for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
-						augmentedPath[ i ]->inMatching = true;
+						augmentedPath[ i ]->inMatching = !augmentedPath[ i ]->inMatching;
 				}
 				// if there is none: find women that adjecent to alternatively reachable men starting from the current men
 				else
 				{
 					alternatingReachableWomen.clear( );
 					findAlternatingReachableWomen( &men[ i ] );
-					int worstMatchingValue;
+					int worstMatchingValue = 0;
 
 					for ( unsigned int j = 0; j < alternatingReachableWomen.size( ); j++ )
 					{
-						// find the first bottom preference (delete it and continue if edge already removed)
+						Person* current = alternatingReachableWomen[ j ];
+
 						found = false;
 						do
 						{
-							if ( women[ i ].strong_preferences.size( ) > 0 )
+							if ( alternatingReachableWomen[ j ]->strong_preferences.size( ) > 0 )
 							{
-								if ( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime ||
-										matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC )
+								if ( matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEPrime ||
+										matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEC )
 								{
-									trace_msg( heuristic, 4, "[SM] worst preferences has edge " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var )
-														   << " with " << women[ i ].strong_preferences.back( ).second << "(delete it)" );
-									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC = false;
-									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime = false;
-									worstMatchingValue = men[ i ].strong_preferences.back( ).second;
-									women[ i ].strong_preferences.pop_back( );
+									trace_msg( heuristic, 4, "[SM] worst preferences has edge " << VariableNames::getName( matches[ current->strong_preferences.back( ).first->id ][ current->id ]->var )
+														   << " with " << current->strong_preferences.back( ).second << " (delete it)" );
+									matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEC = false;
+									matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEPrime = false;
+									worstMatchingValue = current->strong_preferences.back( ).second;
+									current->strong_preferences.pop_back( );
 									found = true;
 								}
 								else
 								{
-									trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var ) << " already removed -> remove from list" );
-									women[ i ].strong_preferences.pop_back( );
+									trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ current->strong_preferences.back( ).first->id ][ current->id ]->var ) << " already removed -> remove from list" );
+									current->strong_preferences.pop_back( );
 								}
 							}
-						} while ( men[ i ].strong_preferences.size( ) > 0 && !found );
+						} while ( current->strong_preferences.size( ) > 0 && !found );
 
 						// get all other preferences with the same value as the one before and remove them
 						found = true;
-						while ( women[ i ].strong_preferences.size( ) > 0 && found )
+						while ( current->strong_preferences.size( ) > 0 && found )
 						{
-							if ( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime &&
-									matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC &&
-									women[ i ].strong_preferences.back( ).second == worstMatchingValue )
+							if ( ( matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEPrime ||
+									matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEC ) &&
+								 current->strong_preferences.back( ).second == worstMatchingValue )
 							{
-								trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->var ) << " too" );
-								matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEC = false;
-								matches[ women[ i ].strong_preferences.back( ).first->id ][ women[ i ].id ]->inEPrime = false;
-								women[ i ].strong_preferences.pop_back( );
+								trace_msg( heuristic, 4, "[SM] remove edge " << VariableNames::getName( matches[ current->strong_preferences.back( ).first->id ][ current->id ]->var )
+								                                           << " (" << current->strong_preferences.back( ).second <<  ") too" );
+								matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEC = false;
+								matches[ current->strong_preferences.back( ).first->id ][ current->id ]->inEPrime = false;
+								current->strong_preferences.pop_back( );
 							}
 							else
 							{
@@ -1788,44 +1801,6 @@ StableMarriageHeuristic::strongStableMarriage(
 
 		// phase two - end
 		//-------------------------------------
-
-//		for ( unsigned int i = 0; i < men.size( ); i++ )
-//		{
-//			trace_msg( heuristic, 1, "[DEBUG] "<< men[ i ].name );
-//			for ( unsigned int j = 0; j < men[ i ].strong_preferences.size( ); j++ )
-//				trace_msg( heuristic, 2, "[DEBUG] " << men[ i ].strong_preferences[ j ].first->name << ", " << men[ i ].strong_preferences[ j ].second );
-//		}
-//
-//		for ( unsigned int i = 0; i < women.size( ); i++ )
-//		{
-//			trace_msg( heuristic, 1, "[DEBUG] "<< women[ i ].name );
-//			for ( unsigned int j = 0; j < women[ i ].strong_preferences.size( ); j++ )
-//				trace_msg( heuristic, 2, "[DEBUG] " << women[ i ].strong_preferences[ j ].first->name << ", " << women[ i ].strong_preferences[ j ].second );;
-//		}
-//
-//		trace_msg( heuristic, 1, "[DEBUG] EPrime/EC" );
-//		for ( unsigned int i = 0; i < size; i++ )
-//		{
-//			for ( unsigned int j = 0; j < size; j++ )
-//			{
-//				if ( matches[ i ][ j ]->inEPrime )
-//					cout << "+/";
-//				else
-//					cout << "-/";
-//
-//				if ( matches[ i ][ j ]->inEC )
-//					cout << "+/";
-//				else
-//					cout << "-/";
-//
-//				if ( matches[ i ][ j ]->inMatching )
-//					cout << "+\t";
-//				else
-//					cout << "-\t";
-//			}
-//
-//			cout << endl;
-//		}
 
 		level++;
 	} while ( proposalsMade > 0 );
@@ -1847,7 +1822,8 @@ StableMarriageHeuristic::findAugmentedPath(
 		for ( unsigned int i = 0; i < size; i++ )
 		{
 			men[ i ].considered = women[ i ].considered = false;
-			if ( getLevel( &women[ i ] ) == currentLevel )
+
+			if ( getLevel( &women[ i ] ) == currentLevel && isFree( &women[ i ], true ) )
 				endpoints.push_back( &women[ i ] );
 		}
 	}
@@ -1856,7 +1832,7 @@ StableMarriageHeuristic::findAugmentedPath(
 		for ( unsigned int i = 0; i < size; i++ )
 		{
 			men[ i ].considered = women[ i ].considered = false;
-			if ( getLevel( &men[ i ] ) == currentLevel )
+			if ( getLevel( &men[ i ] ) == currentLevel && isFree( &men[ i ], true ) )
 				endpoints.push_back( &men[ i ] );
 		}
 	}
@@ -1957,7 +1933,7 @@ StableMarriageHeuristic::findAlternatingReachableWomen(
 		{
 			for ( unsigned int i = 0; i < size; i++ )
 			{
-				if ( matches[ start->id ][ i ]->inEC && matches[ start->id ][ i ]->inMatching == inMatching )
+				if ( matches[ start->id ][ i ]->inEC && !women[ i ].considered && matches[ start->id ][ i ]->inMatching == inMatching )
 					findAlternatingReachableWomen( &women[ i ], !inMatching );
 			}
 		}
@@ -1965,7 +1941,7 @@ StableMarriageHeuristic::findAlternatingReachableWomen(
 		{
 			for ( unsigned int i = 0; i < size; i++ )
 			{
-				if ( matches[ i ][ start->id ]->inEC && matches[ i ][ start->id ]->inMatching == inMatching )
+				if ( matches[ i ][ start->id ]->inEC && !men[ i ].considered && matches[ i ][ start->id ]->inMatching == inMatching )
 					findAlternatingReachableWomen( &men[ i ], !inMatching );
 			}
 		}
@@ -2001,12 +1977,12 @@ StableMarriageHeuristic::isFree(
 		{
 			if ( !inMatching )
 			{
-				if ( matches[ p->id ][ i ]->inEC )
+				if ( matches[ i ][ p->id ]->inEC )
 					return false;
 			}
 			else
 			{
-				if ( matches[ p->id ][ i ]->inMatching )
+				if ( matches[ i ][ p->id ]->inMatching )
 					return false;
 			}
 		}
@@ -2019,26 +1995,26 @@ int
 StableMarriageHeuristic::getLevel(
 	Person* p )
 {
-	int level = 0;
+	int level = INT_MAX;
 
 	if ( p->male )
 	{
 		for ( unsigned int i = 0; i < size; i++ )
 		{
-			if ( matches[ p->id ][ i ]->inEC )
-				level++;
+			if ( matches[ p->id ][ i ]->inEC && matches[ p->id ][ i ]->level < level )
+				level = matches[ p->id ][ i ]->level;
 		}
 	}
 	else
 	{
 		for ( unsigned int i = 0; i < size; i++ )
 		{
-			if ( matches[ i ][ p->id ]->inEC )
-				level++;
+			if ( matches[ i ][ p->id ]->inEC && matches[ i ][ p->id ]->level < level )
+				level = matches[ i ][ p->id ]->level;
 		}
 	}
 
-	if ( level == 0 )
+	if ( level == INT_MAX )
 		return -1;
 
 	return level;
