@@ -155,9 +155,9 @@ class StableMarriageHeuristic : public Heuristic
         bool isFree( Person* p, bool inMatching );
         int getLevel( Person* p );
         void findAugmentedPath( Person* start, int currentLevel );
-        void findAugmentedPath( Person* start, Person* dest, bool inMatching, int currentLevel, vector< Person* > path, int &path_index);
+        void findAugmentedPath( Person* start, Person* dest, bool inMatching, int currentLevel, vector< Person* > path, int &path_index );
         void findAlternatingReachableWomen( Person* start );
-        void findAlternatingReachableWomen( Person* start, bool inMatching );
+        void findAlternatingReachableWomen( Person* start, Person* ignore, bool inMatching );
 };
 
 #endif

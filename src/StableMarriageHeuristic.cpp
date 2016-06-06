@@ -425,9 +425,11 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			std::chrono::time_point<std::chrono::system_clock> gs_start, gs_end;
 			gs_start = std::chrono::system_clock::now();
 
+			// gale-shapley algorithm
 			//galeShapley( );
 
 			//---------------------------
+			// strong stable marriage algorithm
 			strongStableMarriage( );
 			matchesInMarriage.clear( );
 			for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
@@ -441,6 +443,9 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			sendToSolver = true;
 			gs_finished = true;
 			index = 0;
+
+			if ( matchesInMarriage.size( ) < size )
+				cout << "No stable marriage found" << endl;
 
 			gs_end = std::chrono::system_clock::now();
 			std::chrono::duration<double> gs_time = gs_end-gs_start;
@@ -1460,6 +1465,14 @@ StableMarriageHeuristic::onFinishedSolving(
 	std::chrono::duration<double> elapsed_seconds = end_init-start_init;
 	cout << elapsed_seconds.count( ) << " seconds needed for initialization" << endl;
 	cout << heuristic_time.count( ) << " seconds needed for all heuristics calls (" << ( heuristic_time.count( ) / heuCount ) << " on average)" << endl;
+	if ( matchesInMarriage.size( ) < size && maxSteps == 0 )
+	{
+		string out = "";
+		for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
+			out += VariableNames::getName( matchesInMarriage[ i ]->var ) + ", ";
+
+		cout << "No strong stable marriage found. Partial solution: " << out << endl;
+	}
 	minisat->onFinishedSolving( fromSolver );
 }
 
@@ -1539,44 +1552,6 @@ StableMarriageHeuristic::strongStableMarriage(
 	int topMatchingValue;
 	int proposalsMade;
 	bool found;
-
-//	for ( unsigned int i = 0; i < men.size( ); i++ )
-//	{
-//		trace_msg( heuristic, 1, "[DEBUG] "<< men[ i ].name );
-//		for ( unsigned int j = 0; j < men[ i ].strong_preferences.size( ); j++ )
-//			trace_msg( heuristic, 2, "[DEBUG] " << men[ i ].strong_preferences[ j ].first->name << ", " << men[ i ].strong_preferences[ j ].second );
-//	}
-//
-//	for ( unsigned int i = 0; i < women.size( ); i++ )
-//	{
-//		trace_msg( heuristic, 1, "[DEBUG] "<< women[ i ].name );
-//		for ( unsigned int j = 0; j < women[ i ].strong_preferences.size( ); j++ )
-//			trace_msg( heuristic, 2, "[DEBUG] " << women[ i ].strong_preferences[ j ].first->name << ", " << women[ i ].strong_preferences[ j ].second );;
-//	}
-//
-//	trace_msg( heuristic, 1, "[DEBUG] EPrime/EC/Matching" );
-//	for ( unsigned int i = 0; i < size; i++ )
-//	{
-//		for ( unsigned int j = 0; j < size; j++ )
-//		{
-//			if ( matches[ i ][ j ]->inEPrime )
-//				cout << "+/";
-//			else
-//				cout << "-/";
-//
-//			if ( matches[ i ][ j ]->inEC )
-//				cout << "+/";
-//			else
-//				cout << "-/";
-//
-//			if ( matches[ i ][ j ]->inMatching )
-//				cout << "+\t";
-//			else
-//				cout << "-\t";
-//		}
-//
-//		cout << endl;
-//	}
 
 	trace_msg( heuristic, 2, "[SM] Start looking for strong stable marriage" );
 	do
@@ -1716,7 +1691,7 @@ StableMarriageHeuristic::strongStableMarriage(
 
 			// consider only free man in the matching
 			trace_msg( heuristic, 3, "[SM] Consider man " << men[ i ].name );
-			if ( isFree( &men[ i ], true) )
+			if ( isFree( &men[ i ], true ) )
 			{
 				currentLevel = getLevel( &men[ i ] );
 				trace_msg( heuristic, 3, "[SM] is free and has level " << currentLevel );
@@ -1905,18 +1880,19 @@ StableMarriageHeuristic::findAlternatingReachableWomen(
 		men[ i ].considered = women[ i ].considered = false;
 	}
 
-	findAlternatingReachableWomen( start, true );
-	findAlternatingReachableWomen( start, false );
+	findAlternatingReachableWomen( start, start, true );
+	findAlternatingReachableWomen( start, start, false );
 }
 
 void
 StableMarriageHeuristic::findAlternatingReachableWomen(
 	Person* start,
+	Person* ignore,
 	bool inMatching )
 {
 	start->considered = true;
 
-	if ( start->male )
+	if ( start->male && start != ignore )
 	{
 		for ( unsigned int i = 0; i < size; i++ )
 		{
@@ -1934,7 +1910,7 @@ StableMarriageHeuristic::findAlternatingReachableWomen(
 			for ( unsigned int i = 0; i < size; i++ )
 			{
 				if ( matches[ start->id ][ i ]->inEC && !women[ i ].considered && matches[ start->id ][ i ]->inMatching == inMatching )
-					findAlternatingReachableWomen( &women[ i ], !inMatching );
+					findAlternatingReachableWomen( &women[ i ], ignore, !inMatching );
 			}
 		}
 		else
@@ -1942,7 +1918,7 @@ StableMarriageHeuristic::findAlternatingReachableWomen(
 			for ( unsigned int i = 0; i < size; i++ )
 			{
 				if ( matches[ i ][ start->id ]->inEC && !men[ i ].considered && matches[ i ][ start->id ]->inMatching == inMatching )
-					findAlternatingReachableWomen( &men[ i ], !inMatching );
+					findAlternatingReachableWomen( &men[ i ], ignore, !inMatching );
 			}
 		}
 	}
