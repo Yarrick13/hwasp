@@ -422,8 +422,10 @@ StableMarriageHeuristic::makeAChoiceProtected(
 	{
 		if ( !sendToSolver & !gs_finished )
 		{
+#ifdef TRACE_ON
 			std::chrono::time_point<std::chrono::system_clock> gs_start, gs_end;
 			gs_start = std::chrono::system_clock::now();
+#endif
 
 			// gale-shapley algorithm
 			//galeShapley( );
@@ -447,9 +449,20 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			if ( matchesInMarriage.size( ) < size )
 				cout << "No stable marriage found" << endl;
 
+			if ( matchesInMarriage.size( ) < size && maxSteps == 0 )
+			{
+				string out = "";
+				for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
+					out += VariableNames::getName( matchesInMarriage[ i ]->var ) + ", ";
+
+				cout << "No strong stable marriage found. Partial solution: " << out << endl;
+			}
+
+#ifdef TRACE_ON
 			gs_end = std::chrono::system_clock::now();
 			std::chrono::duration<double> gs_time = gs_end-gs_start;
 			trace_msg( heuristic, 3, "[GS] Time: " << gs_time.count( ) << " seconds" );
+#endif
 		}
 	}
 
@@ -472,8 +485,6 @@ StableMarriageHeuristic::makeAChoiceProtected(
 	heuristic_time += end_heuristic-start_heuristic;
 
 	callMinisatCount++;
-
-	exit(0);
 	return minisat->makeAChoice( );
 }
 
@@ -1852,7 +1863,7 @@ StableMarriageHeuristic::findAugmentedPath(
 			{
 				for ( unsigned int i = 0; i < size; i++ )
 				{
-					if ( matches[ start->id ][ i ]->inEC && !women[ i ].considered && getLevel( &women[ i ] ) >= currentLevel && matches[ start->id ][ i ]->inMatching == inMatching )
+					if ( matches[ start->id ][ i ]->inEC && !women[ i ].considered && matches[ start->id ][ i ]->inMatching == inMatching )
 						findAugmentedPath( &women[ i ], dest, !inMatching, currentLevel, path, path_index );
 				}
 			}
@@ -1860,7 +1871,7 @@ StableMarriageHeuristic::findAugmentedPath(
 			{
 				for ( unsigned int i = 0; i < size; i++ )
 				{
-					if ( matches[ i ][ start->id ]->inEC && !men[ i ].considered && getLevel( &men[ i ] ) >= currentLevel && matches[ i ][ start->id ]->inMatching == inMatching )
+					if ( matches[ i ][ start->id ]->inEC && !men[ i ].considered && matches[ i ][ start->id ]->inMatching == inMatching )
 						findAugmentedPath( &men[ i ], dest, !inMatching, currentLevel, path, path_index );
 				}
 			}
