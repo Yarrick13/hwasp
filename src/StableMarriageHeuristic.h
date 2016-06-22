@@ -130,6 +130,8 @@ class StableMarriageHeuristic : public Heuristic
         unsigned int nmCount;
         bool gs_finished;
 
+        bool printConf;
+
         bool checkInput( );
         void processVariable( Var var );
         void initData( );
@@ -151,7 +153,8 @@ class StableMarriageHeuristic : public Heuristic
 
         void galeShapley( );
 
-        void strongStableMarriage( );
+        void strongStableMarriage( );		// implementation adjusted to be used with the ASP Competition 2016 instances
+        void strongStableMarriageOld( ); 	// implementation as in paper "Strongly Stable mathing in Time O(mn) and Extension to the Hospitals-Residents Problem" by Mehlhorn et al.
         bool isFree( Person* p, bool inMatching );
         int getLevel( Person* p );
         void findAugmentedPath( Person* start, int currentLevel );
