@@ -66,6 +66,8 @@ class StableMarriageHeuristic : public Heuristic
         	vector< pair< Person*, int > >strong_preferences;
         	bool male;
         	bool considered;
+        	int edgesInEC;
+        	bool inMatching;
 		};
 
         struct Match

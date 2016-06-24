@@ -93,6 +93,8 @@ StableMarriageHeuristic::processVariable (
 				p.lastConsidered = -1;
 				p.male = true;
 				p.considered = false;
+				p.edgesInEC = 0;
+				p.inMatching = false;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				men.push_back( p );
@@ -121,6 +123,8 @@ StableMarriageHeuristic::processVariable (
 				p.lastConsidered = -1;
 				p.male = false;
 				p.considered = false;
+				p.edgesInEC = 0;
+				p.inMatching = false;
 				p.preferncesInput.insert( std::pair< string, int >( tmp2, strtoul( tmp3.c_str(), NULL, 0 ) ) );
 
 				women.push_back( p );
@@ -446,6 +450,11 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			sendToSolver = true;
 			gs_finished = true;
 			index = 0;
+
+			if ( matchesInMarriage.size( ) < size )
+			{
+				cout << "only partial matching found!" << endl;
+			}
 
 #ifdef TRACE_ON
 			string out = "";
@@ -1426,7 +1435,10 @@ StableMarriageHeuristic::conflictOccurred(
 	)
 {
 	if ( printConf )
+	{
 		trace_msg( heuristic, 1, "Conflict for matching found by the heuristic" );
+		cout << "conf" << endl;
+	}
 	minisat->conflictOccurred( );
 }
 
@@ -1538,6 +1550,12 @@ StableMarriageHeuristic::strongStableMarriage(
 	int topMatchingValue;
 	bool matchingChanged = false;
 	bool found;
+	vector< Person* > toConsiderEC;
+	vector< Person* > toConsiderM;
+	Person* currentMan;
+
+	for ( unsigned int i = 0; i < size; i++ )
+		toConsiderEC.push_back( &men[ i ] );
 
 	trace_msg( heuristic, 2, "[SM] Start looking for strong stable marriage" );
 	do
@@ -1550,87 +1568,100 @@ StableMarriageHeuristic::strongStableMarriage(
 		//-------------------------------------
 		// phase one (move edges from E' to Ec for men) - start
 
-		for ( unsigned int i = 0; i < size; i++ )
+		while ( toConsiderEC.size( ) > 0 )
 		{
-			trace_msg( heuristic, 3, "[SM] Check man "<< men[ i ].name );
+			currentMan = toConsiderEC.back( );
+			trace_msg( heuristic, 3, "[SM] Check man "<< currentMan->name );
 
-#ifdef TRACE_ON
-				if ( isFree( &men[ i ], false ) )
-					trace_msg( heuristic, 4, "[SM] is free" );
-				if ( men[ i ].strong_preferences.size( ) > 0 )
-					trace_msg( heuristic, 4, "[SM] has preferences" );
-#endif
-
-			// process men if he is free and has preferences
-			if ( isFree( &men[ i ],false ) && men[ i ].strong_preferences.size( ) > 0 )
+			if ( currentMan->edgesInEC == 0 )
 			{
-				topMachtings.clear( );
-				topMatchingValue = 0;
-
-				// find the first top preference (delete it and continue if edge already removed)
-				found = false;
-				do
+				// process men if he is free and has preferences
+				if ( currentMan->strong_preferences.size( ) > 0 )
 				{
-					if ( men[ i ].strong_preferences.size( ) > 0 )
+					trace_msg( heuristic, 4, "[SM] is free and prefernces" );
+					topMachtings.clear( );
+					topMatchingValue = 0;
+
+					// find the first top preference (delete it and continue if edge already removed)
+					found = false;
+					do
 					{
-						if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime )
+						if ( currentMan->strong_preferences.size( ) > 0 )
 						{
-							trace_msg( heuristic, 4, "[SM] best preferences has edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var )
-												   << " with " << men[ i ].strong_preferences.back( ).second << " (move it)" );
-							topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->level = level;
-							topMatchingValue = men[ i ].strong_preferences.back( ).second;
-							men[ i ].strong_preferences.pop_back( );
-							found = true;
-							matchingChanged = true;
+							if ( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEPrime )
+							{
+								trace_msg( heuristic, 4, "[SM] best preferences has edge " << VariableNames::getName( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->var )
+													   << " with " << currentMan->strong_preferences.back( ).second << " (move it)" );
+								topMachtings.push_back( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ] );
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEC = true;
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEPrime = false;
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->level = level;
+								topMatchingValue = currentMan->strong_preferences.back( ).second;
+								currentMan->strong_preferences.pop_back( );
+								currentMan->edgesInEC++;
+								toConsiderM.push_back( currentMan );
+								found = true;
+								matchingChanged = true;
+							}
+							else
+							{
+								trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->var )
+																 << " already removed -> remove from list" );
+								currentMan->strong_preferences.pop_back( );
+							}
+						}
+					} while ( currentMan->strong_preferences.size( ) > 0 && !found );
+
+					// get all other preferences with the same value as the one before and move them
+					found = true;
+					while ( currentMan->strong_preferences.size( ) > 0 && found )
+					{
+						if ( currentMan->strong_preferences.back( ).second == topMatchingValue )
+						{
+							if ( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEPrime )
+							{
+								trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->var )
+																		   << " (" << currentMan->strong_preferences.back( ).second <<  ") too" );
+								topMachtings.push_back( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ] );
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEC = true;
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->inEPrime = false;
+								matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->level = level;
+								currentMan->strong_preferences.pop_back( );
+								currentMan->edgesInEC++;
+							}
+							else
+							{
+								trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ currentMan->id ][ currentMan->strong_preferences.back( ).first->id ]->var )
+																 << " already removed -> remove from list" );
+								currentMan->strong_preferences.pop_back( );
+							}
 						}
 						else
 						{
-							trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " already removed -> remove from list" );
-							men[ i ].strong_preferences.pop_back( );
+							found = false;
 						}
 					}
-				} while ( men[ i ].strong_preferences.size( ) > 0 && !found );
 
-				// get all other preferences with the same value as the one before and move them
-				found = true;
-				while ( men[ i ].strong_preferences.size( ) > 0 && found )
-				{
-					if ( men[ i ].strong_preferences.back( ).second == topMatchingValue )
+	#ifdef TRACE_ON
+					string out = "";
+					for ( unsigned int j = 0; j < topMachtings.size( ); j++)
 					{
-						if ( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime )
-						{
-							trace_msg( heuristic, 4, "[SM] move edge " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var )
-																	   << " (" << men[ i ].strong_preferences.back( ).second <<  ") too" );
-							topMachtings.push_back( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ] );
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEC = true;
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->inEPrime = false;
-							matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->level = level;
-							men[ i ].strong_preferences.pop_back( );
-						}
-						else
-						{
-							trace_msg( heuristic, 4, "[SM] " << VariableNames::getName( matches[ men[ i ].id ][ men[ i ].strong_preferences.back( ).first->id ]->var ) << " already removed -> remove from list" );
-							men[ i ].strong_preferences.pop_back( );
-						}
+						out += VariableNames::getName( topMachtings[ j ]->var ) + ", ";
 					}
-					else
-					{
-						found = false;
-					}
+					trace_msg( heuristic, 4, "[SM] Top matchings: " << out );
+	#endif
 				}
-
-#ifdef TRACE_ON
-				string out = "";
-				for ( unsigned int j = 0; j < topMachtings.size( ); j++)
-				{
-					out += VariableNames::getName( topMachtings[ j ]->var ) + ", ";
-				}
-				trace_msg( heuristic, 4, "[SM] Top matchings: " << out );
-#endif
 			}
+			else
+			{
+				if ( !currentMan->inMatching )
+				{
+					trace_msg( heuristic, 3, "[SM] has edges; check again for matching" );
+					toConsiderM.push_back( currentMan );
+				}
+			}
+
+			toConsiderEC.pop_back( );
 		}
 
 		// phase one - end
@@ -1638,74 +1669,88 @@ StableMarriageHeuristic::strongStableMarriage(
 		// phase two - start
 
 		trace_msg( heuristic, 2, "[SM] Phase two" );
-		for ( unsigned int i = 0; i < size; i++ )
+		while ( toConsiderM.size( ) > 0 )
 		{
 			int currentLevel;
 			augmentedPathFound = false;
 			augmentedPath.clear( );
+			currentMan = toConsiderM.back( );
 
 			// consider only free man in the matching
-			trace_msg( heuristic, 3, "[SM] Consider man " << men[ i ].name );
-			if ( isFree( &men[ i ], true ) )
+			trace_msg( heuristic, 3, "[SM] Consider man " << currentMan->name );
+			currentLevel = level;
+			trace_msg( heuristic, 3, "[SM] is free and has level " << getLevel( currentMan ) );
+
+			while ( currentLevel > 0 && !augmentedPathFound )
 			{
-				currentLevel = level;//getLevel( &men[ i ] );
-				trace_msg( heuristic, 3, "[SM] is free and has level " << getLevel( &men[ i ] ) );//currentLevel );
+				findAugmentedPath( currentMan, currentLevel );
 
-				while ( currentLevel > 0 && !augmentedPathFound )
-				{
-					findAugmentedPath( &men[ i ], currentLevel );
+				currentLevel--;
+			}
 
-					currentLevel--;
-				}
-
-				// try to find an augmented path
-				if ( augmentedPathFound )
-				{
+			// try to find an augmented path
+			if ( augmentedPathFound )
+			{
 #ifdef TRACE_ON
-					string path = "";
-					for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
-						path += VariableNames::getName( augmentedPath[ i ]->var ) + ", ";
-					trace_msg( heuristic, 3, "[SM] augmented path: " << path );
+				string path = "";
+				for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
+					path += VariableNames::getName( augmentedPath[ i ]->var ) + ", ";
+				trace_msg( heuristic, 3, "[SM] augmented path: " << path );
 #endif
-					for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
-						augmentedPath[ i ]->inMatching = !augmentedPath[ i ]->inMatching;
-				}
-				// if there is none: find women that adjecent to alternatively reachable men starting from the current men
-				else
+				for ( unsigned int i = 0; i < augmentedPath.size( ); i++ )
 				{
-					trace_msg( heuristic, 3, "[SM] no augmented path. looking for women adjacent to " << men[ i ].name );
-					bool found = false;
-					int worstRanking = INT_MAX;
-					int currentRanking;
-					Person* worstMan;
+					augmentedPath[ i ]->inMatching = !augmentedPath[ i ]->inMatching;
 
-					for( unsigned int j = 0; j < size && !found; j++ )
+					if ( std::find( toConsiderEC.begin( ), toConsiderEC.end( ), augmentedPath[ i ]->man ) == toConsiderEC.end( ) )
+						toConsiderEC.push_back( augmentedPath[ i ]->man );
+				}
+				currentMan->inMatching = true;
+			}
+			// if there is none: find women that adjecent to alternatively reachable men starting from the current men
+			else
+			{
+				trace_msg( heuristic, 3, "[SM] no augmented path. looking for women adjacent to " << currentMan->name );
+				bool found = false;
+				int worstRanking = INT_MAX;
+				int currentRanking;
+				Person* worstMan = 0;
+
+				for( unsigned int j = 0; j < size && !found; j++ )
+				{
+					if ( matches[ currentMan->id ][ j ]->inEC )
 					{
-						if ( matches[ men[ i ].id ][ j ]->inEC )
+						trace_msg( heuristic, 4, "[SM] found women " << women[ j ].name << "; looking for worst ranked man" );
+						for( unsigned int k = 0; k < size; k++ )
 						{
-							trace_msg( heuristic, 4, "[SM] found women " << women[ j ].name << "; looking for worst ranked man" );
-							for( unsigned int k = 0; k < size; k++ )
+							currentRanking = women[ j ].preferncesInput.find( men[ k ].name )->second;
+							if ( matches[ k ][ j ]->inEC && currentRanking < worstRanking )
 							{
-								currentRanking = women[ j ].preferncesInput.find( men[ k ].name )->second;
-								if ( matches[ k ][ j ]->inEC && currentRanking < worstRanking )
-								{
-									trace_msg( heuristic, 4, "[SM] found " << men[ k ].name << " as worst candidate with " << currentRanking );
-									worstRanking = currentRanking;
-									worstMan = &men[ k ];
-								}
+								trace_msg( heuristic, 4, "[SM] found " << men[ k ].name << " as worst candidate with " << currentRanking );
+								worstRanking = currentRanking;
+								worstMan = &men[ k ];
 							}
-
-							trace_msg( heuristic, 4, "[SM] remove " << VariableNames::getName( matches[ worstMan->id ][ j ]->var ) );
-							matches[ worstMan->id ][ j ]->inEC = false;
-							matches[ worstMan->id ][ j ]->inMatching = false;
-							matches[ worstMan->id ][ j ]->inEPrime = false;
-							matchingChanged = true;
-
-							found = true;
 						}
+
+						trace_msg( heuristic, 4, "[SM] remove " << VariableNames::getName( matches[ worstMan->id ][ j ]->var ) );
+
+						worstMan->edgesInEC--;
+						toConsiderEC.push_back( currentMan );
+						if ( std::find( toConsiderEC.begin( ), toConsiderEC.end( ), worstMan ) == toConsiderEC.end( ) )
+							toConsiderEC.push_back( worstMan );
+						if ( matches[ worstMan->id ][ j ]->inMatching )
+							worstMan->inMatching = false;
+
+						matches[ worstMan->id ][ j ]->inEC = false;
+						matches[ worstMan->id ][ j ]->inMatching = false;
+						matches[ worstMan->id ][ j ]->inEPrime = false;
+						matchingChanged = true;
+
+						found = true;
 					}
 				}
 			}
+
+			toConsiderM.pop_back( );
 		}
 
 		// phase two - end
