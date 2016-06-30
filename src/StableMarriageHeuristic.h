@@ -27,11 +27,11 @@
 class StableMarriageHeuristic : public Heuristic
 {
     public:
-		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout, unsigned int samplingTimeout, bool useSimulatedAnnealing );
+		StableMarriageHeuristic( Solver& solver, float randomWalkProbability, unsigned int maxSteps, unsigned int timeout, unsigned int samplingTimeout, bool useSimulatedAnnealing, bool vsids_like );
         ~StableMarriageHeuristic( ) { minisat->~Heuristic( ); }
         void onNewVariable( Var v ){ variables.push_back( v ); minisat->onNewVariable( v ); }
         void onNewVariableRuntime( Var v ){ minisat->onNewVariableRuntime( v ); }
-        void onLiteralInvolvedInConflict( Literal l ){ minisat->onLiteralInvolvedInConflict( l ); }
+        void onLiteralInvolvedInConflict( Literal l );
         void onUnrollingVariable( Var v ){ minisat->onUnrollingVariable( v ); }
         void incrementHeuristicValues( Var v ){ minisat->incrementHeuristicValues( v ); }
         void simplifyVariablesAtLevelZero( ){ minisat->simplifyVariablesAtLevelZero( ); }
@@ -89,6 +89,12 @@ class StableMarriageHeuristic : public Heuristic
         	bool inMatching;
         };
 
+        struct VSIDS_DATA
+        {
+        	unsigned int usedCounter;
+        	int signCounter;
+        };
+
     private:
         vector< Var > variables;
         vector< Person > men;
@@ -97,6 +103,8 @@ class StableMarriageHeuristic : public Heuristic
         vector< vector< Match* > > matches;
         vector< Match* > matchesInMarriage;
         vector< unsigned int > matchesPosition;
+
+        map< Var, VSIDS_DATA > vsidsData;
 
         // augmented path
         bool augmentedPathFound;
@@ -110,10 +118,12 @@ class StableMarriageHeuristic : public Heuristic
         Heuristic* minisat;
 
         float randWalkProb;
+        bool v_like;
         unsigned int steps;
         unsigned int maxSteps;
         unsigned int stepCount;
         unsigned int heuCount;
+        unsigned int vsidsCount;
         unsigned int timeout;
         unsigned int samplingTimeout;
         unsigned int size;

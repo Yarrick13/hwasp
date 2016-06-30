@@ -38,7 +38,8 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	unsigned int maxSteps,
 	unsigned int timeoutDefault,
 	unsigned int samplingTimeoutDefault,
-	bool useSimulatedAnnealing ) : Heuristic( s ), augmentedPathFound( false ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ),
+	bool useSimulatedAnnealing,
+	bool vsids_like) : Heuristic( s ), augmentedPathFound( false ), randWalkProb( randomWalkProbability ), steps( 0 ), maxSteps( maxSteps ), stepCount( 0 ), heuCount( 0 ), vsidsCount( 0 ),
 							 timeout( timeoutDefault ), samplingTimeout( samplingTimeoutDefault ),
 	                         size( 0 ), inputCorrect( true ), noMoveCount( 0 ), index( 0 ), runLocalSearch( true ), sendToSolver( false ), marriageFound( false ), startingGenderMale( true ),
 							 simAnnealing( useSimulatedAnnealing ), fallbackCount( 0 ), callMinisatCount( 0 ), nmCount( 0 ), gs_finished( false ), printConf( true )
@@ -47,8 +48,9 @@ StableMarriageHeuristic::StableMarriageHeuristic(
 	srand(time(NULL));
 	start = std::chrono::system_clock::now();
 	heuristic_time = start-start;
+	v_like = vsids_like;
 
-	temperature = 100;
+	temperature = 1;
 }
 
 /*
@@ -374,8 +376,8 @@ StableMarriageHeuristic::makeAChoiceProtected(
 					if ( simulatedAnnealingStep( &chosenBlockingPath, true, true ) )
 						removeBlockingPath( chosenBlockingPath );
 
-					temperature -= 1;
-					if ( temperature <= 1 || noMoveCount > 5 )
+					temperature= temperature * 0.9;
+					if ( temperature < 0.00001 )
 						steps = maxSteps + 1;
 
 					if ( noMoveCount > 5 )
@@ -385,7 +387,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 				steps++;
 				stepCount++;
 
-	#ifdef TRACE_ON
+#ifdef TRACE_ON
 				string out = "";
 				for ( unsigned int i = 0; i < matchesInput.size( ); i++ )
 				{
@@ -401,7 +403,7 @@ StableMarriageHeuristic::makeAChoiceProtected(
 				trace_msg( heuristic, 5, "Partner (women)" );
 				for ( unsigned int i = 0; i < women.size( ); i++ )
 					trace_msg( heuristic, 5, women[ i ].name << " is partner of " << women[ i ].currentPartner->name );
-	#endif
+#endif
 
 			} while ( blockingPathsRemaining && steps <= maxSteps );
 
@@ -451,11 +453,6 @@ StableMarriageHeuristic::makeAChoiceProtected(
 			gs_finished = true;
 			index = 0;
 
-			if ( matchesInMarriage.size( ) < size )
-			{
-				cout << "only partial matching found!" << endl;
-			}
-
 #ifdef TRACE_ON
 			string out = "";
 			for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
@@ -481,7 +478,6 @@ StableMarriageHeuristic::makeAChoiceProtected(
 
 	if ( sendToSolver )
 	{
-		//for ( unsigned int i = 0; i < matchesInMarriage.size( ); i++ )
 		while ( index < matchesInMarriage.size( ) )
 		{
 			if ( solver.getTruthValue( matchesInMarriage[ index ]->var ) == UNDEFINED )
@@ -493,13 +489,63 @@ StableMarriageHeuristic::makeAChoiceProtected(
 		}
 		sendToSolver = false;
 		printConf = false;
+
+#ifdef TRACE_ON
+		if ( v_like )
+		{
+			trace_msg( heuristic, 2, "[SM] Fallback to VSIDS like heuristic" );
+		}
+		else
+		{
+			trace_msg( heuristic, 2, "[SM] Fallback to minisat" );
+		}
+#endif
 	}
 
 	end_heuristic = std::chrono::system_clock::now();
 	heuristic_time += end_heuristic-start_heuristic;
 
-	callMinisatCount++;
-	return minisat->makeAChoice( );
+	if ( !v_like )
+	{
+		callMinisatCount++;
+		return minisat->makeAChoice( );
+	}
+	else
+	{
+		vsidsCount++;
+		unsigned int maxUsedCounter = 0;
+		map< Var, VSIDS_DATA >::iterator pos;
+
+		if ( vsidsData.size( ) == 0 )
+		{
+			trace_msg( heuristic, 3, "[SM] No conflicts -> ask minisat" );
+			return minisat->makeAChoice( );
+		}
+
+		trace_msg( heuristic, 3, "[SM] Look for most frequently used variable" );
+		for ( map< Var, VSIDS_DATA >::iterator it = vsidsData.begin(); it != vsidsData.end(); ++it )
+		{
+		    if ( it->second.usedCounter > maxUsedCounter && solver.getTruthValue( it->first ) == UNDEFINED )
+		    {
+		    	trace_msg( heuristic, 4, "[SM] Found var " << it->first << " with " << it->second.usedCounter );
+		    	maxUsedCounter = it->second.usedCounter;
+		    	pos = it;
+		    }
+		}
+
+		if ( pos->second.signCounter >= 0 )
+		{
+			trace_msg( heuristic, 4, "[SM] Return " << pos->first << " (false)" );
+			pos->second.signCounter--;
+			return Literal( pos->first, NEGATIVE );
+		}
+		else
+		{
+			trace_msg( heuristic, 4, "[SM] Return " << pos->first << " (true)" );
+			pos->second.signCounter++;
+			return Literal( pos->first, POSITIVE );
+		}
+	}
 }
 
 void
@@ -1437,7 +1483,6 @@ StableMarriageHeuristic::conflictOccurred(
 	if ( printConf )
 	{
 		trace_msg( heuristic, 1, "Conflict for matching found by the heuristic" );
-		cout << "conf" << endl;
 	}
 	minisat->conflictOccurred( );
 }
@@ -1460,7 +1505,7 @@ StableMarriageHeuristic::onFinishedSolving(
 {
 	cout << "no move fallback: " << nmCount << endl;
 	cout << stepCount << " steps in " << heuCount << " heuristic calls" << endl;
-	cout << "Fallback: " << fallbackCount << ", Minisat calls: " << callMinisatCount << endl;
+	cout << "Fallback: " << fallbackCount << ", Minisat calls: " << callMinisatCount << ", VSIDS like calls: " << vsidsCount << endl;
 	std::chrono::duration<double> elapsed_seconds = end_init-start_init;
 	cout << elapsed_seconds.count( ) << " seconds needed for initialization" << endl;
 	cout << heuristic_time.count( ) << " seconds needed for all heuristics calls (" << ( heuristic_time.count( ) / heuCount ) << " on average)" << endl;
@@ -2267,29 +2312,20 @@ StableMarriageHeuristic::getLevel(
 }
 
 
+void
+StableMarriageHeuristic::onLiteralInvolvedInConflict(
+	Literal l )
+{
+	Var var = l.getVariable( );
+	VSIDS_DATA initial;
+	initial.usedCounter = 1;
+	initial.signCounter = 0;
 
+	pair< map<Var, VSIDS_DATA >::iterator, bool > found = vsidsData.insert( pair< Var, VSIDS_DATA >( var, initial ) );
+	if ( found.second == false )
+	{
+		found.first->second.usedCounter++;
+	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	minisat->onLiteralInvolvedInConflict( l );
+}
